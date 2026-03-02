@@ -1,0 +1,29 @@
+# Claude Code
+.claude/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+database-debug.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor
+.vscode/
+*.swp
+*.swo
+*~
