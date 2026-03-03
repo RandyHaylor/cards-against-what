@@ -25,15 +25,27 @@ function buildPlayerState(id, name, isHost) {
     hand: [],
     currentPrompt: null,
     isJudge: false,
-    submissions: null,
-    discardRequests: null,
     message: "",
+    clientUpdates: {
+      playerReady: false,
+      submission: null,
+      discardRequests: null,
+    },
   };
+}
+
+function buildPlayerList(players) {
+  return players.map((p) => ({
+    name: p.name,
+    score: 0,
+    ready: p.clientUpdates.playerReady,
+    isHost: p.isHost,
+  }));
 }
 
 export const serverMachine = setup({
   actors: {
-    watchForPlayerJoins: fromCallback(({ input, sendBack }) => {
+    watchPlayersCollection: fromCallback(({ input, sendBack }) => {
       const unsub = onSnapshot(
         collection(input.db, "lobbies", input.lobbyCode, "players"),
         (snap) => {
@@ -44,6 +56,15 @@ export const serverMachine = setup({
                 playerId: change.doc.id,
                 name: change.doc.data().name,
               });
+            }
+            if (change.type === "modified") {
+              const data = change.doc.data();
+              if (data.clientUpdates?.playerReady) {
+                sendBack({
+                  type: "PLAYER_READY",
+                  playerId: change.doc.id,
+                });
+              }
             }
           });
         }
@@ -63,8 +84,23 @@ export const serverMachine = setup({
           event.isHost || false
         );
         const allPlayers = [...context.players, player];
-        const playerList = allPlayers.map((p) => ({ name: p.name, score: 0, ready: false }));
+        const playerList = buildPlayerList(allPlayers);
         return allPlayers.map((p) => ({ ...p, players: playerList }));
+      },
+    }),
+    setPlayerReady: assign({
+      players: ({ context, event }) => {
+        const updated = context.players.map((p) => {
+          if (p.id === event.playerId) {
+            return {
+              ...p,
+              clientUpdates: { ...p.clientUpdates, playerReady: true },
+            };
+          }
+          return p;
+        });
+        const playerList = buildPlayerList(updated);
+        return updated.map((p) => ({ ...p, players: playerList }));
       },
     }),
     syncPlayerDocs: ({ context }) => {
@@ -84,7 +120,7 @@ export const serverMachine = setup({
     lobby: {
       entry: "createLobby",
       invoke: {
-        src: "watchForPlayerJoins",
+        src: "watchPlayersCollection",
         input: ({ context }) => ({
           db: context.db,
           lobbyCode: context.lobbyCode,
@@ -96,6 +132,9 @@ export const serverMachine = setup({
         },
         PLAYER_JOINED: {
           actions: ["addPlayerToContext", "syncPlayerDocs"],
+        },
+        PLAYER_READY: {
+          actions: ["setPlayerReady", "syncPlayerDocs"],
         },
       },
     },

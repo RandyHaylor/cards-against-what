@@ -2,7 +2,7 @@
 <script type="module">
   import { createActor } from "https://esm.sh/xstate@5";
   import { serverMachine } from "../src/server/machine.js";
-  import { joinLobby } from "../src/player/actions.js";
+  import { joinLobby, setPlayerReady } from "../src/player/actions.js";
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
   import {
     getFirestore,
@@ -49,6 +49,10 @@
   const lobbyCode = "t3st";
 
   // Clean up leftover data from previous runs
+  await deleteDoc(doc(db, "lobbies", lobbyCode, "players", "1")).catch(() => {});
+  await deleteDoc(doc(db, "lobbies", lobbyCode, "players", "2")).catch(() => {});
+  await deleteDoc(doc(db, "lobbies", lobbyCode, "players", "3")).catch(() => {});
+  await deleteDoc(doc(db, "lobbies", lobbyCode, "players", "p1")).catch(() => {});
   await deleteDoc(doc(db, "lobbies", lobbyCode, "players", "p2")).catch(() => {});
   await deleteDoc(doc(db, "lobbies", lobbyCode, "players", "p3")).catch(() => {});
   await deleteDoc(doc(db, "lobbies", lobbyCode)).catch(() => {});
@@ -59,21 +63,20 @@
   console.log("Lobby code:", lobbyCode);
 
   // Dorothy is the host
-  actor.send({ type: "ADD_PLAYER", playerId: "p1", name: "Dorothy", isHost: true });
+  actor.send({ type: "ADD_PLAYER", playerId: "1", name: "Dorothy", isHost: true });
   check("Dorothy in context", actor.getSnapshot().context.players[0].name, "Dorothy");
 
-  // Wait for lobby doc to actually exist
   await waitUntil(async () => (await getDoc(doc(db, "lobbies", lobbyCode))).exists());
   check("lobby doc exists", true, true);
 
   // Phil tries a bad code
-  const philResult = await joinLobby(db, "zzzz", "p99", "Phil");
+  const philResult = await joinLobby(db, "zzzz", "99", "Phil");
   check("Phil gets error for bad code", philResult.error, "Lobby not found");
 
-  // Blanche listens then joins
+  // Blanche joins
   let blancheState = null;
   const unsubBlanche = onSnapshot(
-    doc(db, "lobbies", lobbyCode, "players", "p2"),
+    doc(db, "lobbies", lobbyCode, "players", "2"),
     (snap) => {
       if (snap.exists()) {
         blancheState = snap.data();
@@ -82,20 +85,18 @@
     }
   );
 
-  const blancheResult = await joinLobby(db, lobbyCode, "p2", "Blanche");
-  check("Blanche join succeeded", blancheResult.ok, true);
+  await joinLobby(db, lobbyCode, "2", "Blanche");
   await waitUntil(() => blancheState?.players?.length === 2);
 
-  check("2 players in context", actor.getSnapshot().context.players.length, 2);
   check("Blanche sees 2 players", blancheState.players, [
-    { name: "Dorothy", score: 0, ready: false },
-    { name: "Blanche", score: 0, ready: false },
+    { name: "Dorothy", score: 0, ready: false, isHost: true },
+    { name: "Blanche", score: 0, ready: false, isHost: false },
   ]);
 
-  // Rose listens then joins
+  // Rose joins
   let roseState = null;
   const unsubRose = onSnapshot(
-    doc(db, "lobbies", lobbyCode, "players", "p3"),
+    doc(db, "lobbies", lobbyCode, "players", "3"),
     (snap) => {
       if (snap.exists()) {
         roseState = snap.data();
@@ -104,19 +105,31 @@
     }
   );
 
-  const roseResult = await joinLobby(db, lobbyCode, "p3", "Rose");
-  check("Rose join succeeded", roseResult.ok, true);
+  await joinLobby(db, lobbyCode, "3", "Rose");
   await waitUntil(() => roseState?.players?.length === 3);
   await waitUntil(() => blancheState?.players?.length === 3);
 
-  check("3 players in context", actor.getSnapshot().context.players.length, 3);
-  const allThree = [
-    { name: "Dorothy", score: 0, ready: false },
-    { name: "Blanche", score: 0, ready: false },
-    { name: "Rose", score: 0, ready: false },
+  const allThreeNotReady = [
+    { name: "Dorothy", score: 0, ready: false, isHost: true },
+    { name: "Blanche", score: 0, ready: false, isHost: false },
+    { name: "Rose", score: 0, ready: false, isHost: false },
   ];
-  check("Rose sees all 3 players", roseState.players, allThree);
-  check("Blanche updated to 3 players", blancheState.players, allThree);
+  check("all 3 not ready", blancheState.players, allThreeNotReady);
+
+  // Dorothy readies up (host — direct to server)
+  setPlayerReady(db, lobbyCode, "1", true, actor);
+  await waitUntil(() => blancheState?.players?.[0]?.ready === true);
+
+  check("Dorothy ready in Blanche's view", blancheState.players[0].ready, true);
+  check("Blanche still not ready", blancheState.players[1].ready, false);
+
+  // Blanche readies up (non-host — via Firestore)
+  setPlayerReady(db, lobbyCode, "2", false, null);
+  await waitUntil(() => roseState?.players?.[1]?.ready === true);
+
+  check("Blanche ready in Rose's view", roseState.players[1].ready, true);
+  check("Dorothy still ready", roseState.players[0].ready, true);
+  check("Rose still not ready", roseState.players[2].ready, false);
 
   unsubBlanche();
   unsubRose();

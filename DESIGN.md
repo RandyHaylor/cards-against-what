@@ -105,11 +105,14 @@ lobbies/{code}
 
 lobbies/{code}/players/{playerId}
   (serialized player object)    ← same shape as server's in-memory player object
-  includes: players: [{ name, score, ready }]  ← one list for lobby display, scoreboard, and readiness
+  includes: players: [{ name, score, ready, isHost }]  ← one list for lobby display, scoreboard, and readiness
+  includes: clientUpdates: { playerReady, submission, discardRequests }  ← player-writable zone
 ```
 
 - Server holds all game state in memory (XState context), including all player objects in an array.
-- Each player object has a `players` list with `{ name, score, ready }` for every player. `ready` means "ready to start" in lobby, "submitted answer" during gameplay.
+- Each player object has a `players` list with `{ name, score, ready, isHost }` for every player. `ready` means "ready to start" in lobby, "submitted answer" during gameplay.
+- Player-writable fields are isolated in `clientUpdates`: `{ playerReady, submission, discardRequests }`. Server writes everything else.
+- Host shortcut: player one's updates go directly to the server actor (same runtime). Non-host players write to their `clientUpdates` in Firestore. Same client code, one branch at the sync point.
 - Lobby doc is a signpost — joining players check it exists. Server deletes it on game end.
 - Player docs are direct serializations of the server's player objects. No transformation.
 - Only players 2+ get Firestore docs. Player one is the server — no doc needed.
