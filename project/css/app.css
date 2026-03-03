@@ -14,9 +14,11 @@ body {
 /* Top bar */
 header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
+  gap: 6px;
   background: #16213e;
   border-bottom: 1px solid #0f3460;
   position: sticky;
@@ -46,15 +48,17 @@ header {
   border-radius: 4px;
 }
 
-#copy-code-btn, #copy-link-btn {
+.top-bar-btn {
   background: none;
-  border: none;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  color: #eee;
   cursor: pointer;
-  font-size: 14px;
-  padding: 4px;
-  opacity: 0.7;
+  font-size: 11px;
+  padding: 4px 8px;
+  white-space: nowrap;
 }
-#copy-code-btn:active, #copy-link-btn:active { opacity: 1; }
+.top-bar-btn:active { background: #0f3460; }
 
 #player-icons {
   display: flex;
@@ -298,7 +302,15 @@ main > section {
   width: 100%;
 }
 
+.hand-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
 .hand-card {
+  flex: 1;
+  min-width: 0;
   padding: 12px;
   background: #16213e;
   border: 2px solid #0f3460;
@@ -309,7 +321,23 @@ main > section {
 }
 
 .hand-card.selected { border-color: #e94560; background: #1a1a3e; }
-.hand-card.discard { border-color: #ff9800; opacity: 0.6; }
+.hand-card.discard { border-color: #e94560; opacity: 0.6; text-decoration: line-through; }
+
+.discard-btn {
+  padding: 0 12px;
+  background: none;
+  border: 2px solid #333;
+  border-radius: 6px;
+  color: #666;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.discard-btn.active {
+  border-color: #e94560;
+  color: #e94560;
+  background: rgba(233, 69, 96, 0.1);
+}
 
 /* Answer card (submission viewer) */
 .answer-card {
