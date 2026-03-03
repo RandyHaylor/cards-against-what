@@ -477,7 +477,9 @@ confirmNo.addEventListener("click", hideConfirm);
 
 // -- Local UI rules --
 inputCode.addEventListener("input", () => {
-  btnCreate.disabled = inputCode.value.trim().length > 0;
+  const hasCode = inputCode.value.trim().length > 0;
+  btnCreate.disabled = hasCode;
+  btnCreate.textContent = hasCode ? "Create Lobby (clear lobby code first)" : "Create Lobby";
 });
 
 // -- Bridge subscription --
@@ -488,4 +490,5 @@ const params = new URLSearchParams(location.search);
 if (params.get("code")) {
   inputCode.value = params.get("code");
   btnCreate.disabled = true;
+  btnCreate.textContent = "Create Lobby (clear lobby code first)";
 }

@@ -206,6 +206,13 @@ main > section {
   margin-top: -2px;
 }
 
+.field-label {
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .landing-form input {
   padding: 10px;
   border: 1px solid #0f3460;
