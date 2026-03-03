@@ -1,4 +1,5 @@
 import { setup, assign, fromCallback } from "https://esm.sh/xstate@5";
+import { createLobby, syncAllPlayerDocs } from "./actions.js";
 
 // TODO: Once live, any new game created also looks at existing lobby docs,
 // grabs player 1 last update timestamp for each, deletes that lobby doc
@@ -49,7 +50,7 @@ export const serverMachine = setup({
   },
   actions: {
     createLobby: ({ context }) => {
-      context.syncController.createLobby(context.lobbyCode);
+      createLobby(context.syncController, context.lobbyCode);
     },
     addPlayerToContext: assign({
       players: ({ context, event }) => {
@@ -79,7 +80,7 @@ export const serverMachine = setup({
       },
     }),
     syncPlayerDocs: ({ context }) => {
-      context.syncController.syncPlayerDocs(context.lobbyCode, context.players);
+      syncAllPlayerDocs(context.syncController, context.lobbyCode, context.players);
     },
   },
 }).createMachine({
