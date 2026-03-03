@@ -177,3 +177,38 @@ export function assembleSubmissions(players) {
     }));
   return shuffleArray(submissions);
 }
+
+// -- Judging --
+
+export function awardPoint(players, winnerId) {
+  const updated = players.map((p) => {
+    if (p.id === winnerId) {
+      return { ...p, score: p.score + 1 };
+    }
+    return p;
+  });
+  const playerList = buildPlayerList(updated);
+  return updated.map((p) => ({ ...p, players: playerList }));
+}
+
+export function setJudgedPhase(players, submissions, winnerId) {
+  const winnerName = players.find((p) => p.id === winnerId)?.name || "";
+  return players.map((p) => ({
+    ...p,
+    phase: "judged",
+    message: `${winnerName} wins this round!`,
+    clientUpdates: {
+      playerReady: false,
+      submission: null,
+      discardRequests: null,
+    },
+  }));
+}
+
+export function hasPlayerWon(players, scoreToWin) {
+  return players.some((p) => p.score >= scoreToWin);
+}
+
+export function rotateJudgeIndex(judgeIndex, playerCount) {
+  return (judgeIndex + 1) % playerCount;
+}

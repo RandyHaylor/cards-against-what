@@ -50,6 +50,16 @@ export function createSyncController(db) {
                   discardRequests: data.clientUpdates.discardRequests,
                 });
               }
+              if (data.clientUpdates?.pickWinner) {
+                sendBack({
+                  type: "PICK_WINNER",
+                  playerId: change.doc.id,
+                  winnerId: data.clientUpdates.pickWinner,
+                });
+              }
+              if (data.clientUpdates?.nextRound) {
+                sendBack({ type: "NEXT_ROUND" });
+              }
             }
           });
         }
@@ -95,6 +105,26 @@ export function createSyncController(db) {
         updateDoc(doc(db, "lobbies", lobbyCode, "players", playerId), {
           "clientUpdates.submission": submission,
           "clientUpdates.discardRequests": discardRequests || [],
+        });
+      }
+    },
+
+    pickWinner(lobbyCode, playerId, winnerId) {
+      if (serverActor) {
+        serverActor.send({ type: "PICK_WINNER", playerId, winnerId });
+      } else {
+        updateDoc(doc(db, "lobbies", lobbyCode, "players", playerId), {
+          "clientUpdates.pickWinner": winnerId,
+        });
+      }
+    },
+
+    startNextRound(lobbyCode, playerId) {
+      if (serverActor) {
+        serverActor.send({ type: "NEXT_ROUND" });
+      } else {
+        updateDoc(doc(db, "lobbies", lobbyCode, "players", playerId), {
+          "clientUpdates.nextRound": true,
         });
       }
     },

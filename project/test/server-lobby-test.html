@@ -2,7 +2,7 @@
 <script type="module">
   import { createActor } from "https://esm.sh/xstate@5";
   import { serverMachine } from "../src/server/machine.js";
-  import { joinLobby, setPlayerReady, submitAnswer } from "../src/player/actions.js";
+  import { joinLobby, setPlayerReady, submitAnswer, pickWinner, startNextRound } from "../src/player/actions.js";
   import { createSyncController } from "../src/playerSyncController.js";
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
   import {
@@ -193,6 +193,44 @@
   await waitUntil(() => blancheState?.phase === "judging");
   check("Blanche sees judging phase", blancheState.phase, "judging");
   check("Blanche sees judge message", blancheState.message, "Dorothy is reviewing submissions.");
+
+  // === JUDGING: Dorothy picks a winner ===
+
+  const winnerId = judgingCtx.submissions[0].playerId;
+  const winnerName = judgingCtx.submissions[0].playerName;
+
+  // Dorothy is host/judge — pick winner goes directly to server actor
+  pickWinner(hostSync, lobbyCode, "1", winnerId);
+
+  check("transitioned to judged", actor.getSnapshot().value, "judged");
+  const judgedCtx = actor.getSnapshot().context;
+  const winner = judgedCtx.players.find((p) => p.id === winnerId);
+  check("winner got a point", winner.score, 1);
+  check("phase is judged", judgedCtx.players[0].phase, "judged");
+  check("message announces winner", judgedCtx.players[0].message, `${winnerName} wins this round!`);
+  check("scores updated in player list", judgedCtx.players[0].players.find((p) => p.name === winnerName).score, 1);
+
+  // Wait for Firestore sync of judged state
+  await waitUntil(() => blancheState?.phase === "judged");
+  check("Blanche sees judged phase", blancheState.phase, "judged");
+  check("Blanche sees winner message", blancheState.message, `${winnerName} wins this round!`);
+
+  // === JUDGED: Dorothy starts next round ===
+
+  startNextRound(hostSync, lobbyCode, "1");
+
+  check("transitioned back to roundActive", actor.getSnapshot().value, "roundActive");
+  const round2Ctx = actor.getSnapshot().context;
+  check("judge rotated to Blanche", round2Ctx.players[1].isJudge, true);
+  check("Dorothy no longer judge", round2Ctx.players[0].isJudge, false);
+  check("phase is round-active again", round2Ctx.players[0].phase, "round-active");
+  check("new prompt drawn", round2Ctx.promptIndex, 2);
+  check("clientUpdates reset for round 2", round2Ctx.players[0].clientUpdates.playerReady, false);
+  check("hands still 5 cards each", round2Ctx.players.every((p) => p.hand.length === 5), true);
+
+  // Wait for Firestore sync of round 2
+  await waitUntil(() => blancheState?.phase === "round-active" && blancheState?.isJudge === true);
+  check("Blanche sees she is judge", blancheState.isJudge, true);
 
   unsubBlanche();
   unsubRose();

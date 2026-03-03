@@ -2,6 +2,7 @@ import { setup, assign, fromCallback } from "https://esm.sh/xstate@5";
 import {
   createLobby,
   syncAllPlayerDocs,
+  buildPlayerList,
   addPlayer,
   markPlayerReady,
   allPlayersReady,
@@ -15,6 +16,10 @@ import {
   processSubmissions,
   topUpHands,
   assembleSubmissions,
+  awardPoint,
+  setJudgedPhase,
+  hasPlayerWon,
+  rotateJudgeIndex,
 } from "./actions.js";
 
 // TODO: Once live, any new game created also looks at existing lobby docs,
@@ -44,6 +49,7 @@ export const serverMachine = setup({
       );
       return allNonJudgeSubmitted(updated);
     },
+    hasPlayerWon: ({ context }) => hasPlayerWon(context.players, context.scoreToWin),
   },
   actions: {
     createLobby: ({ context }) => {
@@ -110,6 +116,29 @@ export const serverMachine = setup({
         }));
       },
     }),
+    awardPoint: assign({
+      players: ({ context, event }) =>
+        awardPoint(context.players, event.winnerId),
+    }),
+    setJudgedPhase: assign({
+      players: ({ context, event }) =>
+        setJudgedPhase(context.players, context.submissions, event.winnerId),
+    }),
+    rotateJudge: assign(({ context }) => ({
+      judgeIndex: rotateJudgeIndex(context.judgeIndex, context.players.length),
+    })),
+    setGameOverPhase: assign({
+      players: ({ context }) => {
+        const winner = context.players.reduce((a, b) => (a.score > b.score ? a : b));
+        const playerList = buildPlayerList(context.players);
+        return context.players.map((p) => ({
+          ...p,
+          phase: "game-over",
+          message: `${winner.name} wins the game!`,
+          players: playerList,
+        }));
+      },
+    }),
     syncPlayerDocs: ({ context }) => {
       syncAllPlayerDocs(context.syncController, context.lobbyCode, context.players);
     },
@@ -122,6 +151,7 @@ export const serverMachine = setup({
     lobbyCode: input.lobbyCode || generateLobbyCode(),
     deckId: input.deckId || "",
     handSize: input.handSize || 10,
+    scoreToWin: input.scoreToWin || 7,
     players: [],
     deck: null,
     judgeIndex: 0,
@@ -184,6 +214,35 @@ export const serverMachine = setup({
           lobbyCode: context.lobbyCode,
         }),
       },
+      on: {
+        PICK_WINNER: {
+          target: "judged",
+          actions: ["awardPoint", "setJudgedPhase", "syncPlayerDocs"],
+        },
+      },
     },
+    judged: {
+      invoke: {
+        src: "watchPlayersCollection",
+        input: ({ context }) => ({
+          syncController: context.syncController,
+          lobbyCode: context.lobbyCode,
+        }),
+      },
+      on: {
+        NEXT_ROUND: [
+          {
+            guard: "hasPlayerWon",
+            target: "gameOver",
+            actions: ["setGameOverPhase", "syncPlayerDocs"],
+          },
+          {
+            target: "roundActive",
+            actions: ["rotateJudge", "assignJudge", "drawPromptAndStartRound", "syncPlayerDocs"],
+          },
+        ],
+      },
+    },
+    gameOver: {},
   },
 });
