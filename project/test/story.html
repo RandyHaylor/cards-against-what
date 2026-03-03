@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
-  import { createLobby } from "../src/lobby.js";
+  import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+  import { createLobby, joinLobby } from "../src/lobby.js";
 
   const app = initializeApp({
     projectId: "cardsagainstwhat",
@@ -12,25 +12,51 @@
   });
   const db = getFirestore(app);
 
-  // Chapter 1: Player one creates a lobby
   const player1 = { id: "p1", name: "Dorothy" };
+  const player2 = { id: "p2", name: "Blanche" };
+  const player3 = { id: "p3", name: "Rose" };
+
+  // Chapter 1: Player one creates a lobby
+  console.log("--- Chapter 1: Create Lobby ---");
   const lobby = await createLobby(db, player1, "golden-girls");
+  console.log("Lobby created:", lobby.code);
 
-  if (!lobby.code || lobby.code.length !== 4) {
-    console.log("FAIL: lobby code should be 4 characters, got:", lobby.code);
-  } else {
-    console.log("PASS: lobby created with code", lobby.code);
+  // Set up onSnapshot hooks for each player
+  function watchPlayer(code, player) {
+    return onSnapshot(doc(db, "lobbies", code, "players", player.id), (snap) => {
+      if (snap.exists()) {
+        console.log(`[${player.name} state changed]`, JSON.stringify(snap.data()));
+      }
+    });
   }
 
-  const snap = await getDoc(doc(db, "lobbies", lobby.code));
-  if (!snap.exists()) {
-    console.log("FAIL: lobby doc not found in Firestore");
-  } else {
-    const data = snap.data();
-    console.log("PASS: lobby doc exists in Firestore");
-    if (data.deckId !== "golden-girls") console.log("FAIL: wrong deckId", data.deckId);
-    else console.log("PASS: deckId is golden-girls");
-    if (data.createdBy !== player1.id) console.log("FAIL: wrong createdBy", data.createdBy);
-    else console.log("PASS: createdBy is player1");
-  }
+  const unsub1 = watchPlayer(lobby.code, player1);
+
+  // Give snapshot a moment to fire
+  await new Promise(r => setTimeout(r, 1000));
+
+  // Chapter 2: Player two joins
+  console.log("--- Chapter 2: Blanche Joins ---");
+  const unsub2 = watchPlayer(lobby.code, player2);
+  const join2 = await joinLobby(db, lobby.code, player2);
+  if (join2.ok) console.log("PASS: Blanche joined");
+  else console.log("FAIL:", join2.error);
+
+  await new Promise(r => setTimeout(r, 1000));
+
+  // Chapter 3: Player three joins
+  console.log("--- Chapter 3: Rose Joins ---");
+  const unsub3 = watchPlayer(lobby.code, player3);
+  const join3 = await joinLobby(db, lobby.code, player3);
+  if (join3.ok) console.log("PASS: Rose joined");
+  else console.log("FAIL:", join3.error);
+
+  await new Promise(r => setTimeout(r, 1000));
+
+  console.log("--- Story complete ---");
+
+  // Clean up listeners
+  unsub1();
+  unsub2();
+  unsub3();
 </script>

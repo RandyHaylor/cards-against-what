@@ -4,7 +4,7 @@
 
 1. Player one creates a lobby — picks a deck, configures settings (or accepts defaults from settings json/schema)
 2. Other players join the lobby using a code
-3. Player one starts the game when ready
+3. Players mark themselves as ready. Player one starts the game when all players are ready.
 4. Deck is loaded (from cardsUrl), hands of `handSize` cards dealt to all players
 5. Judge is selected (first of the rotation)
 6. Prompt card drawn
@@ -96,6 +96,26 @@ next-round-ready
 game-over
   enter: display final scores, winner announcement
 ```
+
+## Firestore Structure
+
+```
+lobbies/{code}
+  createdBy, createdAt          ← minimal signpost, server creates on lobby creation
+
+lobbies/{code}/players/{playerId}
+  (serialized player object)    ← same shape as server's in-memory player object
+  includes: players: [{ name, score, ready }]  ← one list for lobby display, scoreboard, and readiness
+```
+
+- Server holds all game state in memory (XState context), including all player objects in an array.
+- Each player object has a `players` list with `{ name, score, ready }` for every player. `ready` means "ready to start" in lobby, "submitted answer" during gameplay.
+- Lobby doc is a signpost — joining players check it exists. Server deletes it on game end.
+- Player docs are direct serializations of the server's player objects. No transformation.
+- Only players 2+ get Firestore docs. Player one is the server — no doc needed.
+- Players listen (onSnapshot) to their own doc only. Never the lobby doc, never other players' docs.
+- Players write to their own doc for submissions and discard flags. Server reads, processes, then writes clean state back — each round starts fresh.
+- Deck loaded from cardsUrl (GitHub raw). Not stored in Firestore.
 
 ## Settings (from game-settings-schema.json)
 

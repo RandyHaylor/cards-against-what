@@ -1,18 +1,22 @@
 # Cards Against What
 
 Cards Against Humanity clone for mobile web on top of Firebase.
-Firestore DB. Server host logic in Cloud Functions. Light player client logic in JS on static Firebase-hosted sites.
+Firestore DB. Host game logic runs on player one's client. All player client logic in JS on static Firebase-hosted sites. Free Spark plan — no Cloud Functions, no billing.
 No npm. No frameworks. No builds. Firebase CLI for deployment. Firebase SDK and XState loaded via CDN everywhere — dev and production identical.
 
 ## Architecture
 
-- Server and client are each driven by an XState state machine (see `data/server-state-flow.json` and `data/client-state-flow.json`)
+- Host and client are each driven by an XState state machine (see `data/server-state-flow.json` and `data/client-state-flow.json`)
 - Each state has enter/during/exit logic in its own module
-- Server (Cloud Functions) is the host — no player is the host
-- Player one creates the lobby and can start the game, but is otherwise just a player
-- Each player has one Firestore document. Players only listen (onSnapshot) to their own doc — never the lobby doc, never other players' docs
-- Server writes all updates to each player's doc, batching when possible (deal cards + set prompt + update phase = one write)
-- onSnapshot fires only when that specific player's doc is updated by the server
+- Host logic runs on player one's browser. Host code ships in every client but only activates for the player flagged as host.
+- Server holds ALL game state in memory (XState context) — not in Firestore. This includes an array of all player objects, including player one.
+- Each player object contains a `players` array: `[{ name, score, ready }]`. This is the single source of truth for who's playing, scores, and readiness. `ready` is used in lobby (ready to start) and during gameplay (submitted answer).
+- Firestore is a sync layer, not a state store. Server serializes player objects directly to player docs for players 2+. Player one doesn't need a Firestore doc — they ARE the server.
+- Server creates a minimal lobby doc as a signpost for joining players. Joining players check it exists, then write their own doc. Server watches the players collection for new joins.
+- Players only listen (onSnapshot) to their own doc — never the lobby doc, never other players' docs.
+- Server clears player submission/discard fields when writing the next round's state. Each round starts clean.
+- Deck loaded from cardsUrl (GitHub raw), not stored in Firestore.
+- If host disconnects, game ends. Acceptable — players are physically together.
 
 ## Testing
 

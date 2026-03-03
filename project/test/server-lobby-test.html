@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<script type="module">
+  import { createActor } from "https://esm.sh/xstate@5";
+  import { serverMachine } from "../src/server/machine.js";
+  import { joinLobby } from "../src/player/actions.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    deleteDoc,
+    onSnapshot,
+  } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+
+  const app = initializeApp({
+    projectId: "cardsagainstwhat",
+    appId: "1:808328792842:web:59b83499d1323cf1ff88f3",
+    apiKey: "AIzaSyBBqeRGVH08LhGl6NnTvX-J0Qr6iCnOOig",
+    authDomain: "cardsagainstwhat.firebaseapp.com",
+  });
+  const db = getFirestore(app);
+
+  let pass = 0;
+  let fail = 0;
+  function check(label, actual, expected) {
+    const a = JSON.stringify(actual);
+    const e = JSON.stringify(expected);
+    if (a === e) {
+      console.log("PASS:", label);
+      pass++;
+    } else {
+      console.log("FAIL:", label, "— got", a, "expected", e);
+      fail++;
+    }
+  }
+
+  function waitUntil(conditionFn, timeout = 5000) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const poll = async () => {
+        if (await conditionFn()) return resolve();
+        if (Date.now() - start > timeout) return reject(new Error("waitUntil timed out"));
+        setTimeout(poll, 100);
+      };
+      poll();
+    });
+  }
+
+  const lobbyCode = "t3st";
+
+  // Clean up leftover data from previous runs
+  await deleteDoc(doc(db, "lobbies", lobbyCode, "players", "p2")).catch(() => {});
+  await deleteDoc(doc(db, "lobbies", lobbyCode, "players", "p3")).catch(() => {});
+  await deleteDoc(doc(db, "lobbies", lobbyCode)).catch(() => {});
+
+  // Dorothy creates a lobby
+  const actor = createActor(serverMachine, { input: { db, deckId: "golden-girls", lobbyCode } });
+  actor.start();
+  console.log("Lobby code:", lobbyCode);
+
+  // Dorothy is the host
+  actor.send({ type: "ADD_PLAYER", playerId: "p1", name: "Dorothy", isHost: true });
+  check("Dorothy in context", actor.getSnapshot().context.players[0].name, "Dorothy");
+
+  // Wait for lobby doc to actually exist
+  await waitUntil(async () => (await getDoc(doc(db, "lobbies", lobbyCode))).exists());
+  check("lobby doc exists", true, true);
+
+  // Phil tries a bad code
+  const philResult = await joinLobby(db, "zzzz", "p99", "Phil");
+  check("Phil gets error for bad code", philResult.error, "Lobby not found");
+
+  // Blanche listens then joins
+  let blancheState = null;
+  const unsubBlanche = onSnapshot(
+    doc(db, "lobbies", lobbyCode, "players", "p2"),
+    (snap) => {
+      if (snap.exists()) {
+        blancheState = snap.data();
+        console.log("Blanche sees:", JSON.stringify(blancheState));
+      }
+    }
+  );
+
+  const blancheResult = await joinLobby(db, lobbyCode, "p2", "Blanche");
+  check("Blanche join succeeded", blancheResult.ok, true);
+  await waitUntil(() => blancheState?.players?.length === 2);
+
+  check("2 players in context", actor.getSnapshot().context.players.length, 2);
+  check("Blanche sees 2 players", blancheState.players, [
+    { name: "Dorothy", score: 0, ready: false },
+    { name: "Blanche", score: 0, ready: false },
+  ]);
+
+  // Rose listens then joins
+  let roseState = null;
+  const unsubRose = onSnapshot(
+    doc(db, "lobbies", lobbyCode, "players", "p3"),
+    (snap) => {
+      if (snap.exists()) {
+        roseState = snap.data();
+        console.log("Rose sees:", JSON.stringify(roseState));
+      }
+    }
+  );
+
+  const roseResult = await joinLobby(db, lobbyCode, "p3", "Rose");
+  check("Rose join succeeded", roseResult.ok, true);
+  await waitUntil(() => roseState?.players?.length === 3);
+  await waitUntil(() => blancheState?.players?.length === 3);
+
+  check("3 players in context", actor.getSnapshot().context.players.length, 3);
+  const allThree = [
+    { name: "Dorothy", score: 0, ready: false },
+    { name: "Blanche", score: 0, ready: false },
+    { name: "Rose", score: 0, ready: false },
+  ];
+  check("Rose sees all 3 players", roseState.players, allThree);
+  check("Blanche updated to 3 players", blancheState.players, allThree);
+
+  unsubBlanche();
+  unsubRose();
+  actor.stop();
+
+  console.log("=== Results:", pass, "passed,", fail, "failed ===");
+  if (fail === 0) console.log("ALL TESTS PASSED");
+</script>
