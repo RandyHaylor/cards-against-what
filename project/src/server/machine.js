@@ -1,6 +1,4 @@
 import { setup, assign, fromCallback } from "https://esm.sh/xstate@5";
-import { createLobbyDoc, syncAllPlayerDocs } from "./actions.js";
-import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
 // TODO: Once live, any new game created also looks at existing lobby docs,
 // grabs player 1 last update timestamp for each, deletes that lobby doc
@@ -46,35 +44,12 @@ function buildPlayerList(players) {
 export const serverMachine = setup({
   actors: {
     watchPlayersCollection: fromCallback(({ input, sendBack }) => {
-      const unsub = onSnapshot(
-        collection(input.db, "lobbies", input.lobbyCode, "players"),
-        (snap) => {
-          snap.docChanges().forEach((change) => {
-            if (change.type === "added") {
-              sendBack({
-                type: "PLAYER_JOINED",
-                playerId: change.doc.id,
-                name: change.doc.data().name,
-              });
-            }
-            if (change.type === "modified") {
-              const data = change.doc.data();
-              if (data.clientUpdates?.playerReady) {
-                sendBack({
-                  type: "PLAYER_READY",
-                  playerId: change.doc.id,
-                });
-              }
-            }
-          });
-        }
-      );
-      return () => unsub();
+      return input.syncController.watchPlayers(input.lobbyCode, sendBack);
     }),
   },
   actions: {
     createLobby: ({ context }) => {
-      createLobbyDoc(context.db, context.lobbyCode);
+      context.syncController.createLobby(context.lobbyCode);
     },
     addPlayerToContext: assign({
       players: ({ context, event }) => {
@@ -104,14 +79,14 @@ export const serverMachine = setup({
       },
     }),
     syncPlayerDocs: ({ context }) => {
-      syncAllPlayerDocs(context.db, context.lobbyCode, context.players);
+      context.syncController.syncPlayerDocs(context.lobbyCode, context.players);
     },
   },
 }).createMachine({
   id: "server",
   initial: "lobby",
   context: ({ input }) => ({
-    db: input.db,
+    syncController: input.syncController,
     lobbyCode: input.lobbyCode || generateLobbyCode(),
     deckId: input.deckId || "",
     players: [],
@@ -122,7 +97,7 @@ export const serverMachine = setup({
       invoke: {
         src: "watchPlayersCollection",
         input: ({ context }) => ({
-          db: context.db,
+          syncController: context.syncController,
           lobbyCode: context.lobbyCode,
         }),
       },

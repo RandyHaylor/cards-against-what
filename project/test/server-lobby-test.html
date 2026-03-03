@@ -3,13 +3,13 @@
   import { createActor } from "https://esm.sh/xstate@5";
   import { serverMachine } from "../src/server/machine.js";
   import { joinLobby, setPlayerReady } from "../src/player/actions.js";
+  import { createSyncController } from "../src/playerSyncController.js";
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
   import {
     getFirestore,
     doc,
     getDoc,
     deleteDoc,
-    onSnapshot,
   } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
   const app = initializeApp({
@@ -57,9 +57,11 @@
   await deleteDoc(doc(db, "lobbies", lobbyCode, "players", "p3")).catch(() => {});
   await deleteDoc(doc(db, "lobbies", lobbyCode)).catch(() => {});
 
-  // Dorothy creates a lobby
-  const actor = createActor(serverMachine, { input: { db, deckId: "golden-girls", lobbyCode } });
+  // Dorothy creates a lobby (host sync controller)
+  const hostSync = createSyncController(db);
+  const actor = createActor(serverMachine, { input: { syncController: hostSync, deckId: "golden-girls", lobbyCode } });
   actor.start();
+  hostSync.setServerActor(actor);
   console.log("Lobby code:", lobbyCode);
 
   // Dorothy is the host
@@ -70,22 +72,19 @@
   check("lobby doc exists", true, true);
 
   // Phil tries a bad code
-  const philResult = await joinLobby(db, "zzzz", "99", "Phil");
+  const philSync = createSyncController(db);
+  const philResult = await joinLobby(philSync, "zzzz", "99", "Phil");
   check("Phil gets error for bad code", philResult.error, "Lobby not found");
 
   // Blanche joins
+  const blancheSync = createSyncController(db);
   let blancheState = null;
-  const unsubBlanche = onSnapshot(
-    doc(db, "lobbies", lobbyCode, "players", "2"),
-    (snap) => {
-      if (snap.exists()) {
-        blancheState = snap.data();
-        console.log("Blanche sees:", JSON.stringify(blancheState));
-      }
-    }
-  );
+  const unsubBlanche = blancheSync.watchMyDoc(lobbyCode, "2", (data) => {
+    blancheState = data;
+    console.log("Blanche sees:", JSON.stringify(blancheState));
+  });
 
-  await joinLobby(db, lobbyCode, "2", "Blanche");
+  await joinLobby(blancheSync, lobbyCode, "2", "Blanche");
   await waitUntil(() => blancheState?.players?.length === 2);
 
   check("Blanche sees 2 players", blancheState.players, [
@@ -94,18 +93,14 @@
   ]);
 
   // Rose joins
+  const roseSync = createSyncController(db);
   let roseState = null;
-  const unsubRose = onSnapshot(
-    doc(db, "lobbies", lobbyCode, "players", "3"),
-    (snap) => {
-      if (snap.exists()) {
-        roseState = snap.data();
-        console.log("Rose sees:", JSON.stringify(roseState));
-      }
-    }
-  );
+  const unsubRose = roseSync.watchMyDoc(lobbyCode, "3", (data) => {
+    roseState = data;
+    console.log("Rose sees:", JSON.stringify(roseState));
+  });
 
-  await joinLobby(db, lobbyCode, "3", "Rose");
+  await joinLobby(roseSync, lobbyCode, "3", "Rose");
   await waitUntil(() => roseState?.players?.length === 3);
   await waitUntil(() => blancheState?.players?.length === 3);
 
@@ -116,15 +111,15 @@
   ];
   check("all 3 not ready", blancheState.players, allThreeNotReady);
 
-  // Dorothy readies up (host — direct to server)
-  setPlayerReady(db, lobbyCode, "1", true, actor);
+  // Dorothy readies up (host — sync controller has server actor)
+  setPlayerReady(hostSync, lobbyCode, "1");
   await waitUntil(() => blancheState?.players?.[0]?.ready === true);
 
   check("Dorothy ready in Blanche's view", blancheState.players[0].ready, true);
   check("Blanche still not ready", blancheState.players[1].ready, false);
 
-  // Blanche readies up (non-host — via Firestore)
-  setPlayerReady(db, lobbyCode, "2", false, null);
+  // Blanche readies up (non-host — sync controller writes to Firestore)
+  setPlayerReady(blancheSync, lobbyCode, "2");
   await waitUntil(() => roseState?.players?.[1]?.ready === true);
 
   check("Blanche ready in Rose's view", roseState.players[1].ready, true);
