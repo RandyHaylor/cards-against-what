@@ -124,6 +124,7 @@ lobbies/{code}/players/{playerId}
   - Golden Girls deck: `https://raw.githubusercontent.com/RandyHaylor/cards-against-what/master/project/data/decks/golden-girls-cards.json`
   - Format: `{ deckId, prompts: [{ id, text: [...strings], pick }], answers: [{ id, text }] }`. Prompt `text` is an array of string segments — answers get inserted between segments, then appended to the end. `pick` is the number of answer cards needed.
   - TODO: Add tests for deck exhaustion — what happens when answer cards run out mid-game? Shuffle discards back in, or end game?
+  - TODO: Load game settings from `default-game-settings.json` and validate against `game-settings-schema.json` when creating a lobby. Currently the machine takes raw values from input with hardcoded fallback defaults — no loading, no validation.
 
 ## Settings (from game-settings-schema.json)
 

@@ -49,6 +49,8 @@
   const lobbyCode = "t3st";
   const deckResponse = await fetch("/data/decks/golden-girls-cards.json");
   const testDeck = await deckResponse.json();
+  const schemaResponse = await fetch("/data/game-settings-schema.json");
+  const testSchema = await schemaResponse.json();
   console.log("Deck loaded:", testDeck.prompts.length, "prompts,", testDeck.answers.length, "answers");
 
   // Clean up leftover data from previous runs
@@ -62,7 +64,7 @@
 
   // Dorothy creates a lobby (host sync controller)
   const hostSync = createSyncController(db);
-  const actor = createActor(serverMachine, { input: { syncController: hostSync, deckId: "golden-girls", lobbyCode, handSize: 5 } });
+  const actor = createActor(serverMachine, { input: { syncController: hostSync, deckId: "golden-girls", lobbyCode } });
   actor.start();
   hostSync.setServerActor(actor);
   console.log("Lobby code:", lobbyCode);
@@ -140,10 +142,15 @@
   check("Rose ready in Blanche's view", blancheState.players[2].ready, true);
 
   // All players ready — START_GAME should transition
-  actor.send({ type: "START_GAME", deck: testDeck });
+  const testSettings = { handSize: 5, scoreToWin: 7 };
+  actor.send({ type: "START_GAME", deck: testDeck, settings: testSettings, schema: testSchema });
   check("transitioned to roundActive", actor.getSnapshot().value, "roundActive");
 
   const ctx = actor.getSnapshot().context;
+  check("settings stored", ctx.settings.handSize, 5);
+  check("settings validated — scoreToWin", ctx.settings.scoreToWin, 7);
+  check("settings defaults filled in", ctx.settings.freeDiscardsPerRound, 2);
+  check("settings defaults — judgeMode", ctx.settings.judgeMode, "rotating");
   check("Dorothy has 5 cards", ctx.players[0].hand.length, 5);
   check("Blanche has 5 cards", ctx.players[1].hand.length, 5);
   check("Rose has 5 cards", ctx.players[2].hand.length, 5);

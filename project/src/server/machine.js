@@ -6,6 +6,7 @@ import {
   addPlayer,
   markPlayerReady,
   allPlayersReady,
+  validateSettings,
   shuffleArray,
   dealHands,
   assignJudge,
@@ -49,7 +50,7 @@ export const serverMachine = setup({
       );
       return allNonJudgeSubmitted(updated);
     },
-    hasPlayerWon: ({ context }) => hasPlayerWon(context.players, context.scoreToWin),
+    hasPlayerWon: ({ context }) => hasPlayerWon(context.players, context.settings.scoreToWin),
   },
   actions: {
     createLobby: ({ context }) => {
@@ -63,6 +64,9 @@ export const serverMachine = setup({
       players: ({ context, event }) =>
         markPlayerReady(context.players, event.playerId),
     }),
+    storeSettings: assign({
+      settings: ({ event }) => validateSettings(event.settings, event.schema),
+    }),
     storeDeck: assign({
       deck: ({ event }) => ({
         prompts: shuffleArray(event.deck.prompts),
@@ -70,7 +74,7 @@ export const serverMachine = setup({
       }),
     }),
     dealHands: assign(({ context }) => {
-      const result = dealHands(context.players, context.deck.answers, context.handSize);
+      const result = dealHands(context.players, context.deck.answers, context.settings.handSize);
       return {
         players: result.players,
         deck: { ...context.deck, answers: result.remainingAnswers },
@@ -93,7 +97,7 @@ export const serverMachine = setup({
     processRoundEnd: assign(({ context }) => {
       let players = processDiscards(context.players);
       players = processSubmissions(players);
-      const result = topUpHands(players, context.deck.answers, context.handSize);
+      const result = topUpHands(players, context.deck.answers, context.settings.handSize);
       const submissions = assembleSubmissions(context.players);
       return {
         players: result.players,
@@ -150,8 +154,7 @@ export const serverMachine = setup({
     syncController: input.syncController,
     lobbyCode: input.lobbyCode || generateLobbyCode(),
     deckId: input.deckId || "",
-    handSize: input.handSize || 10,
-    scoreToWin: input.scoreToWin || 7,
+    settings: null,
     players: [],
     deck: null,
     judgeIndex: 0,
@@ -181,7 +184,7 @@ export const serverMachine = setup({
         START_GAME: {
           guard: "allPlayersReady",
           target: "roundActive",
-          actions: ["storeDeck", "dealHands", "assignJudge", "drawPromptAndStartRound", "syncPlayerDocs"],
+          actions: ["storeSettings", "storeDeck", "dealHands", "assignJudge", "drawPromptAndStartRound", "syncPlayerDocs"],
         },
       },
     },

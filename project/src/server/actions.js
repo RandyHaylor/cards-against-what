@@ -8,6 +8,31 @@ export function syncAllPlayerDocs(syncController, lobbyCode, players) {
   return syncController.syncPlayerDocs(lobbyCode, players);
 }
 
+// -- Settings validation --
+
+export function validateSettings(settings, schema) {
+  const validated = {};
+  for (const [key, rule] of Object.entries(schema.gameSettings)) {
+    const value = settings?.[key];
+    if (value === undefined || value === null) {
+      validated[key] = rule.default;
+      continue;
+    }
+    if (rule.enum && !rule.enum.includes(value)) {
+      validated[key] = rule.default;
+      continue;
+    }
+    if ((rule.type === "integer" || rule.type === "number") && typeof value === "number") {
+      if (value < rule.min) { validated[key] = rule.min; continue; }
+      if (value > rule.max) { validated[key] = rule.max; continue; }
+      validated[key] = rule.type === "integer" ? Math.floor(value) : value;
+      continue;
+    }
+    validated[key] = rule.default;
+  }
+  return validated;
+}
+
 // -- Pure game logic --
 
 export function buildPlayerState(id, name, isHost) {
