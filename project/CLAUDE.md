@@ -42,3 +42,5 @@ No npm. No frameworks. No builds. Firebase CLI for deployment. Firebase SDK and 
 5. **Git commits: single line message, no attribution. Never compound git commands — no `cd && git`, no `git add && git commit`. Each git command runs as its own separate call.**
 
 6. **Name functions after what they do in plain English.** If the design doc says "replaces discard-requested and submitted cards in player's hand," the function reads close to that.
+
+7. **Dev cycle: write code → test → update CLAUDE.md/DESIGN.md when relevant → commit → push.** Follow this loop. Don't skip steps.
