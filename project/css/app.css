@@ -227,6 +227,7 @@ main > section {
   cursor: pointer;
 }
 .landing-form button:active { background: #c73652; }
+.landing-form button:disabled { background: #555; cursor: default; }
 
 .divider {
   text-align: center;

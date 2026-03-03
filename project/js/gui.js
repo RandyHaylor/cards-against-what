@@ -475,6 +475,11 @@ copyLinkBtn.addEventListener("click", () => {
 confirmYes.addEventListener("click", () => { if (confirmAction) confirmAction(); hideConfirm(); });
 confirmNo.addEventListener("click", hideConfirm);
 
+// -- Local UI rules --
+inputCode.addEventListener("input", () => {
+  btnCreate.disabled = inputCode.value.trim().length > 0;
+});
+
 // -- Bridge subscription --
 bridge.onViewChange(render);
 
@@ -482,4 +487,5 @@ bridge.onViewChange(render);
 const params = new URLSearchParams(location.search);
 if (params.get("code")) {
   inputCode.value = params.get("code");
+  btnCreate.disabled = true;
 }
