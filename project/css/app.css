@@ -232,6 +232,14 @@ main > section {
 
 .error { color: #e94560; font-size: 14px; }
 
+.instructions {
+  color: #666;
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
 /* Lobby */
 #lobby-player-list {
   width: 100%;

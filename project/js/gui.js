@@ -226,7 +226,7 @@ function renderLobby(view) {
   btnReady.disabled = isReady;
 
   if (view.isHost) {
-    const allReady = view.players.length > 0 && view.players.every((p) => p.ready);
+    const allReady = view.players.length >= 2 && view.players.every((p) => p.ready);
     btnStartGame.classList.toggle("hidden", !allReady);
   } else {
     btnStartGame.classList.add("hidden");
