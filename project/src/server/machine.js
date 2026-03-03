@@ -1,5 +1,11 @@
 import { setup, assign, fromCallback } from "https://esm.sh/xstate@5";
-import { createLobby, syncAllPlayerDocs } from "./actions.js";
+import {
+  createLobby,
+  syncAllPlayerDocs,
+  addPlayer,
+  markPlayerReady,
+  allPlayersReady,
+} from "./actions.js";
 
 // TODO: Once live, any new game created also looks at existing lobby docs,
 // grabs player 1 last update timestamp for each, deletes that lobby doc
@@ -14,70 +20,26 @@ function generateLobbyCode() {
   return code;
 }
 
-function buildPlayerState(id, name, isHost) {
-  return {
-    id: id,
-    name: name,
-    isHost: isHost,
-    phase: "lobby",
-    players: [],
-    hand: [],
-    currentPrompt: null,
-    isJudge: false,
-    message: "",
-    clientUpdates: {
-      playerReady: false,
-      submission: null,
-      discardRequests: null,
-    },
-  };
-}
-
-function buildPlayerList(players) {
-  return players.map((p) => ({
-    name: p.name,
-    score: 0,
-    ready: p.clientUpdates.playerReady,
-    isHost: p.isHost,
-  }));
-}
-
 export const serverMachine = setup({
   actors: {
     watchPlayersCollection: fromCallback(({ input, sendBack }) => {
       return input.syncController.watchPlayers(input.lobbyCode, sendBack);
     }),
   },
+  guards: {
+    allPlayersReady: ({ context }) => allPlayersReady(context.players),
+  },
   actions: {
     createLobby: ({ context }) => {
       createLobby(context.syncController, context.lobbyCode);
     },
     addPlayerToContext: assign({
-      players: ({ context, event }) => {
-        const player = buildPlayerState(
-          event.playerId,
-          event.name,
-          event.isHost || false
-        );
-        const allPlayers = [...context.players, player];
-        const playerList = buildPlayerList(allPlayers);
-        return allPlayers.map((p) => ({ ...p, players: playerList }));
-      },
+      players: ({ context, event }) =>
+        addPlayer(context.players, event.playerId, event.name, event.isHost || false),
     }),
     setPlayerReady: assign({
-      players: ({ context, event }) => {
-        const updated = context.players.map((p) => {
-          if (p.id === event.playerId) {
-            return {
-              ...p,
-              clientUpdates: { ...p.clientUpdates, playerReady: true },
-            };
-          }
-          return p;
-        });
-        const playerList = buildPlayerList(updated);
-        return updated.map((p) => ({ ...p, players: playerList }));
-      },
+      players: ({ context, event }) =>
+        markPlayerReady(context.players, event.playerId),
     }),
     syncPlayerDocs: ({ context }) => {
       syncAllPlayerDocs(context.syncController, context.lobbyCode, context.players);
@@ -112,7 +74,13 @@ export const serverMachine = setup({
         PLAYER_READY: {
           actions: ["setPlayerReady", "syncPlayerDocs"],
         },
+        START_GAME: {
+          guard: "allPlayersReady",
+          target: "roundActive",
+        },
       },
+    },
+    roundActive: {
     },
   },
 });

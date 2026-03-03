@@ -126,6 +126,20 @@
   check("Dorothy still ready", roseState.players[0].ready, true);
   check("Rose still not ready", roseState.players[2].ready, false);
 
+  // START_GAME should fail — Rose isn't ready yet
+  actor.send({ type: "START_GAME" });
+  check("still in lobby (not all ready)", actor.getSnapshot().value, "lobby");
+
+  // Rose readies up (non-host — via Firestore)
+  setPlayerReady(roseSync, lobbyCode, "3");
+  await waitUntil(() => blancheState?.players?.[2]?.ready === true);
+
+  check("Rose ready in Blanche's view", blancheState.players[2].ready, true);
+
+  // All players ready — START_GAME should transition
+  actor.send({ type: "START_GAME" });
+  check("transitioned to roundActive", actor.getSnapshot().value, "roundActive");
+
   unsubBlanche();
   unsubRose();
   actor.stop();
