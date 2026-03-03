@@ -1,5 +1,7 @@
-## Long-running current instruction (commit 83f11bc)
-Keep action logic out of machine.js — actions live in actions.js files so they can be reused by different states. Continue building out and testing the remaining server state machine states (round-active, judging, judged, game-over) per DESIGN.md, using TDD. Do not stop to ask questions. Commit/push regularly per the dev cycle commandment in case things go wrong.
+## Status
+Server machine complete (65 tests): lobby → roundActive → judging → judged → roundActive/gameOver.
+Client machine complete (21 tests): landing → lobby → picking → submitted → judgingWaiting/judgingActive → postJudging → nextRoundReady → gameOver.
+Settings validated via schema on START_GAME. Next: UI.
 
 # Cards Against What
 
