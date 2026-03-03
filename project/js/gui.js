@@ -39,6 +39,7 @@ const inputCode = $("input-code");
 const btnCreate = $("btn-create");
 const btnJoin = $("btn-join");
 const landingError = $("landing-error");
+const newGameBtn = $("new-game-btn");
 const deckSelect = $("deck-select");
 
 const viewLobby = $("view-lobby");
@@ -480,6 +481,12 @@ copyCodeBtn.addEventListener("click", () => {
 copyLinkBtn.addEventListener("click", () => {
   const url = location.origin + location.pathname + "?code=" + bridge.getLobbyCode();
   navigator.clipboard.writeText(url);
+});
+
+newGameBtn.addEventListener("click", () => {
+  showConfirm("Go to Start page in a new tab? You can continue here as well, or close this tab to leave this game. If a game is still going and you are not the game host, you can retrieve a reconnection link from the player who initiated the game.", () => {
+    window.open(location.origin + location.pathname, "_blank");
+  });
 });
 
 // Confirm dialog
