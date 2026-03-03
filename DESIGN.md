@@ -112,7 +112,9 @@ lobbies/{code}/players/{playerId}
 - Server holds all game state in memory (XState context), including all player objects in an array.
 - Each player object has a `players` list with `{ name, score, ready, isHost }` for every player. `ready` means "ready to start" in lobby, "submitted answer" during gameplay.
 - Player-writable fields are isolated in `clientUpdates`: `{ playerReady, submission, discardRequests }`. Server writes everything else.
-- Host shortcut: player one's updates go directly to the server actor (same runtime). Non-host players write to their `clientUpdates` in Firestore. Same client code, one branch at the sync point.
+- `playerSyncController.js` owns all sync between client and server. Host updates go directly to the server actor (same runtime). Non-host updates write to Firestore. Neither the server machine nor client code imports Firebase — only the sync controller does. This abstracts the transport layer, making it portable to other platforms.
+- Server-side: the sync controller feeds player events into the machine (from onSnapshot for remote players, from direct calls for the host). The machine doesn't know the source.
+- Client-side: player actions call the sync controller to push updates. The sync controller decides how to deliver them.
 - Lobby doc is a signpost — joining players check it exists. Server deletes it on game end.
 - Player docs are direct serializations of the server's player objects. No transformation.
 - Only players 2+ get Firestore docs. Player one is the server — no doc needed.

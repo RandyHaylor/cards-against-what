@@ -12,7 +12,7 @@ No npm. No frameworks. No builds. Firebase CLI for deployment. Firebase SDK and 
 - Server holds ALL game state in memory (XState context) — not in Firestore. This includes an array of all player objects, including player one.
 - Each player object contains a `players` array: `[{ name, score, ready, isHost }]`. This is the single source of truth for who's playing, scores, and readiness. `ready` is used in lobby (ready to start) and during gameplay (submitted answer).
 - Player-writable fields live in a `clientUpdates` container: `{ playerReady, submission, discardRequests }`. Clear boundary — server writes everything else, players only write inside `clientUpdates`.
-- Host shortcut: player one's client updates go directly to the server actor (same runtime). Non-host players write `clientUpdates` to Firestore. Same client code, one branch at the sync point.
+- `playerSyncController.js` owns all sync between client and server. It hides whether updates go via Firestore (non-host) or directly to the server actor (host). Neither the server machine nor client/player code imports Firebase — only the sync controller does.
 - Firestore is a sync layer, not a state store. Server serializes player objects directly to player docs for players 2+. Player one doesn't need a Firestore doc — they ARE the server.
 - Server creates a minimal lobby doc as a signpost for joining players. Joining players check it exists, then write their own doc. Server watches the players collection for new joins.
 - Players only listen (onSnapshot) to their own doc — never the lobby doc, never other players' docs.
