@@ -39,6 +39,7 @@ const inputCode = $("input-code");
 const btnCreate = $("btn-create");
 const btnJoin = $("btn-join");
 const landingError = $("landing-error");
+const deckSelect = $("deck-select");
 
 const viewLobby = $("view-lobby");
 const hostWarning = $("host-warning");
@@ -368,9 +369,14 @@ btnReady.addEventListener("click", () => {
   btnReady.disabled = true;
 });
 
+const deckUrls = {
+  "golden-girls": "https://raw.githubusercontent.com/RandyHaylor/cards-against-what/master/project/data/decks/golden-girls-cards.json",
+  "90s-fame-fashion": "https://raw.githubusercontent.com/RandyHaylor/cards-against-what/master/project/data/decks/90s-fame-fashion-cards.json",
+};
+
 btnStartGame.addEventListener("click", async () => {
   btnStartGame.disabled = true;
-  const deckResp = await fetch("https://raw.githubusercontent.com/RandyHaylor/cards-against-what/master/project/data/decks/golden-girls-cards.json");
+  const deckResp = await fetch(deckUrls[deckSelect.value]);
   const deck = await deckResp.json();
   const schemaResp = await fetch("https://raw.githubusercontent.com/RandyHaylor/cards-against-what/master/project/data/game-settings-schema.json");
   const schema = await schemaResp.json();
