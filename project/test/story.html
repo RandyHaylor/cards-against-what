@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+  import { createLobby } from "../src/lobby.js";
+
+  const app = initializeApp({
+    projectId: "cardsagainstwhat",
+    appId: "1:808328792842:web:59b83499d1323cf1ff88f3",
+    apiKey: "AIzaSyBBqeRGVH08LhGl6NnTvX-J0Qr6iCnOOig",
+    authDomain: "cardsagainstwhat.firebaseapp.com"
+  });
+  const db = getFirestore(app);
+
+  // Chapter 1: Player one creates a lobby
+  const player1 = { id: "p1", name: "Dorothy" };
+  const lobby = await createLobby(db, player1, "golden-girls");
+
+  if (!lobby.code || lobby.code.length !== 4) {
+    console.log("FAIL: lobby code should be 4 characters, got:", lobby.code);
+  } else {
+    console.log("PASS: lobby created with code", lobby.code);
+  }
+
+  const snap = await getDoc(doc(db, "lobbies", lobby.code));
+  if (!snap.exists()) {
+    console.log("FAIL: lobby doc not found in Firestore");
+  } else {
+    const data = snap.data();
+    console.log("PASS: lobby doc exists in Firestore");
+    if (data.deckId !== "golden-girls") console.log("FAIL: wrong deckId", data.deckId);
+    else console.log("PASS: deckId is golden-girls");
+    if (data.createdBy !== player1.id) console.log("FAIL: wrong createdBy", data.createdBy);
+    else console.log("PASS: createdBy is player1");
+  }
+</script>
