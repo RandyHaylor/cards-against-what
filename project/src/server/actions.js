@@ -139,12 +139,13 @@ export function startRound(players, prompt) {
 // -- Submission processing --
 
 export function recordSubmission(players, playerId, submission, discardRequests) {
-  return players.map((p) => {
+  const updated = players.map((p) => {
     if (p.id === playerId) {
       return {
         ...p,
         clientUpdates: {
           ...p.clientUpdates,
+          playerReady: true,
           submission,
           discardRequests: discardRequests || [],
         },
@@ -152,6 +153,8 @@ export function recordSubmission(players, playerId, submission, discardRequests)
     }
     return p;
   });
+  const playerList = buildPlayerList(updated);
+  return updated.map((p) => ({ ...p, players: playerList }));
 }
 
 export function allNonJudgeSubmitted(players) {

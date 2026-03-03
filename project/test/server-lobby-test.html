@@ -181,6 +181,8 @@
     return s.context.players[1].clientUpdates.submission !== null;
   });
   check("still in roundActive after 1 submission", actor.getSnapshot().value, "roundActive");
+  check("Blanche shows ready (submitted)", actor.getSnapshot().context.players[1].players[1].ready, true);
+  check("Rose not ready yet", actor.getSnapshot().context.players[1].players[2].ready, false);
 
   // Rose submits (non-host — via Firestore), with a discard
   const roseHand = ctx.players[2].hand;
