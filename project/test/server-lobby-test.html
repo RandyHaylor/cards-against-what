@@ -243,6 +243,59 @@
   unsubRose();
   actor.stop();
 
+  // === GAME-OVER TEST: scoreToWin = 1 ===
+
+  const goCode = "t3go";
+  await deleteDoc(doc(db, "lobbies", goCode, "players", "1")).catch(() => {});
+  await deleteDoc(doc(db, "lobbies", goCode, "players", "2")).catch(() => {});
+  await deleteDoc(doc(db, "lobbies", goCode)).catch(() => {});
+
+  const goHostSync = createSyncController(db);
+  const goActor = createActor(serverMachine, { input: { syncController: goHostSync, lobbyCode: goCode } });
+  goActor.start();
+  goHostSync.setServerActor(goActor);
+
+  goActor.send({ type: "ADD_PLAYER", playerId: "1", name: "Dorothy", isHost: true });
+
+  const goPlayerSync = createSyncController(db);
+  let goPlayerState = null;
+  const goUnsub = goPlayerSync.watchMyDoc(goCode, "2", (data) => { goPlayerState = data; });
+  await joinLobby(goPlayerSync, goCode, "2", "Blanche");
+  await waitUntil(() => goPlayerState?.players?.length === 2);
+
+  setPlayerReady(goHostSync, goCode, "1");
+  setPlayerReady(goPlayerSync, goCode, "2");
+  await waitUntil(() => goActor.getSnapshot().context.players.every((p) => p.clientUpdates.playerReady));
+
+  const goSettings = { handSize: 5, scoreToWin: 1 };
+  goActor.send({ type: "START_GAME", deck: testDeck, settings: goSettings, schema: testSchema });
+  check("go: in roundActive", goActor.getSnapshot().value, "roundActive");
+
+  // Blanche submits (only non-judge)
+  const goHand = goActor.getSnapshot().context.players[1].hand;
+  submitAnswer(goPlayerSync, goCode, "2", goHand[0].id, []);
+  await waitUntil(() => goActor.getSnapshot().value === "judging");
+
+  // Dorothy picks Blanche as winner
+  pickWinner(goHostSync, goCode, "1", "2");
+  check("go: in judged", goActor.getSnapshot().value, "judged");
+  check("go: Blanche has 1 point", goActor.getSnapshot().context.players[1].score, 1);
+
+  // NEXT_ROUND should trigger game-over (scoreToWin = 1)
+  startNextRound(goHostSync, goCode, "1");
+  check("go: transitioned to gameOver", goActor.getSnapshot().value, "gameOver");
+
+  const goCtx = goActor.getSnapshot().context;
+  check("go: phase is game-over", goCtx.players[0].phase, "game-over");
+  check("go: message announces game winner", goCtx.players[0].message, "Blanche wins the game!");
+
+  await waitUntil(() => goPlayerState?.phase === "game-over");
+  check("go: Blanche sees game-over", goPlayerState.phase, "game-over");
+  check("go: Blanche sees game winner message", goPlayerState.message, "Blanche wins the game!");
+
+  goUnsub();
+  goActor.stop();
+
   console.log("=== Results:", pass, "passed,", fail, "failed ===");
   if (fail === 0) console.log("ALL TESTS PASSED");
 </script>
