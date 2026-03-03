@@ -4,6 +4,7 @@ import {
   syncAllPlayerDocs,
   buildPlayerList,
   addPlayer,
+  isNameTaken,
   markPlayerReady,
   allPlayersReady,
   validateSettings,
@@ -43,6 +44,7 @@ export const serverMachine = setup({
     }),
   },
   guards: {
+    nameNotTaken: ({ context, event }) => !isNameTaken(context.players, event.name),
     allPlayersReady: ({ context }) => allPlayersReady(context.players),
     allNonJudgeSubmitted: ({ context, event }) => {
       const updated = recordSubmission(
@@ -112,6 +114,7 @@ export const serverMachine = setup({
           ...p,
           phase: "judging",
           message: p.isJudge ? "" : `${judgeName} is reviewing submissions.`,
+          submissionsToJudge: p.isJudge ? context.submissions : [],
           clientUpdates: {
             playerReady: false,
             submission: null,
@@ -173,9 +176,11 @@ export const serverMachine = setup({
       },
       on: {
         ADD_PLAYER: {
+          guard: "nameNotTaken",
           actions: ["addPlayerToContext", "syncPlayerDocs"],
         },
         PLAYER_JOINED: {
+          guard: "nameNotTaken",
           actions: ["addPlayerToContext", "syncPlayerDocs"],
         },
         PLAYER_READY: {

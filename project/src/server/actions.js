@@ -47,6 +47,7 @@ export function buildPlayerState(id, name, isHost) {
     currentPrompt: null,
     isJudge: false,
     message: "",
+    submissionsToJudge: [],
     clientUpdates: {
       playerReady: false,
       submission: null,
@@ -62,6 +63,10 @@ export function buildPlayerList(players) {
     ready: p.clientUpdates.playerReady,
     isHost: p.isHost,
   }));
+}
+
+export function isNameTaken(players, name) {
+  return players.some((p) => p.name.toLowerCase() === name.toLowerCase());
 }
 
 export function addPlayer(players, playerId, name, isHost) {
@@ -127,6 +132,7 @@ export function startRound(players, prompt) {
     phase: "round-active",
     currentPrompt: prompt,
     message: "",
+    submissionsToJudge: [],
     players: playerList,
     clientUpdates: {
       playerReady: false,
@@ -198,11 +204,15 @@ export function topUpHands(players, answerCards, handSize) {
 export function assembleSubmissions(players) {
   const submissions = players
     .filter((p) => !p.isJudge && p.clientUpdates.submission !== null)
-    .map((p) => ({
-      playerId: p.id,
-      playerName: p.name,
-      card: p.clientUpdates.submission,
-    }));
+    .map((p) => {
+      const cardId = p.clientUpdates.submission;
+      const card = p.hand.find((c) => c.id === cardId);
+      return {
+        playerId: p.id,
+        playerName: p.name,
+        card: card ? card.text : cardId,
+      };
+    });
   return shuffleArray(submissions);
 }
 
@@ -221,10 +231,15 @@ export function awardPoint(players, winnerId) {
 
 export function setJudgedPhase(players, submissions, winnerId) {
   const winnerName = players.find((p) => p.id === winnerId)?.name || "";
+  const resultsWithWinner = submissions.map((s) => ({
+    ...s,
+    isWinner: s.playerId === winnerId,
+  }));
   return players.map((p) => ({
     ...p,
     phase: "judged",
     message: `${winnerName} wins this round!`,
+    submissionsToJudge: resultsWithWinner,
     clientUpdates: {
       playerReady: false,
       submission: null,

@@ -2,6 +2,7 @@ import {
   doc,
   setDoc,
   getDoc,
+  getDocs,
   updateDoc,
   writeBatch,
   collection,
@@ -20,6 +21,15 @@ export function createSyncController(db) {
       return setDoc(doc(db, "lobbies", lobbyCode), {
         createdAt: Date.now(),
       });
+    },
+
+    writeHostPlayerDoc(lobbyCode, name) {
+      return setDoc(doc(db, "lobbies", lobbyCode, "players", "1"), { name });
+    },
+
+    async getNamesForLobby(lobbyCode) {
+      const playersSnap = await getDocs(collection(db, "lobbies", lobbyCode, "players"));
+      return playersSnap.docs.map((d) => d.data().name || "");
     },
 
     watchPlayers(lobbyCode, sendBack) {
@@ -84,6 +94,10 @@ export function createSyncController(db) {
       if (!lobbySnap.exists()) {
         return { error: "Lobby not found" };
       }
+      const names = await this.getNamesForLobby(lobbyCode);
+      if (names.some((n) => n.toLowerCase() === name.toLowerCase())) {
+        return { error: "Name already taken" };
+      }
       await setDoc(doc(db, "lobbies", lobbyCode, "players", playerId), { name });
       return { ok: true };
     },
@@ -130,6 +144,13 @@ export function createSyncController(db) {
     },
 
     watchMyDoc(lobbyCode, playerId, callback) {
+      if (serverActor) {
+        const sub = serverActor.subscribe(() => {
+          const player = serverActor.getSnapshot().context.players.find((p) => p.id === playerId);
+          if (player) callback(player);
+        });
+        return () => sub.unsubscribe();
+      }
       return onSnapshot(
         doc(db, "lobbies", lobbyCode, "players", playerId),
         (snap) => {

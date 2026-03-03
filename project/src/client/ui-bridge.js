@@ -42,18 +42,20 @@ export function createUIBridge(syncController) {
     }
     const snap = clientActor.getSnapshot();
     const doc = snap.context.playerDoc;
+    const lastRound = snap.context.lastRound;
+    const useLastRound = snap.value === "nextRoundReady" && lastRound;
     return {
       state: snap.value,
       players: doc?.players || [],
       hand: doc?.hand || [],
-      currentPrompt: doc?.currentPrompt || null,
+      currentPrompt: useLastRound ? lastRound.currentPrompt : (doc?.currentPrompt || null),
       isJudge: doc?.isJudge || false,
       isHost,
       score: doc?.score || 0,
-      message: doc?.message || "",
+      message: useLastRound ? lastRound.message : (doc?.message || ""),
       lobbyCode,
       playerName,
-      submissions: snap.context.submissions || [],
+      submissions: useLastRound ? lastRound.submissionsToJudge : (doc?.submissionsToJudge || []),
     };
   }
 
@@ -92,6 +94,7 @@ export function createUIBridge(syncController) {
       serverActor = actor;
 
       actor.send({ type: "ADD_PLAYER", playerId: "1", name, isHost: true });
+      syncController.writeHostPlayerDoc(lobbyCode, name);
 
       startClientActor();
       clientActor.send({ type: "LOBBY_CREATED", lobbyCode, playerId });

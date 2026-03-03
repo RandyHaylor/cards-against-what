@@ -1,10 +1,16 @@
-## Long-running current instruction
-Lets talk about the ui some. I want the same interface, slim minimal bar across top showing lobby code, copy code button, copy link button, icon with name for each player. if the player is the host, the lobby code is a menu button that has a menu that pops up and has end game (with yes/no confirmation), player admin (overlay with player list, each with a button 'copy rejoin link' and 'kick player' (which has a yes/no confirmation), start next round (these special admin/host controls are tied to no state, do not over build for these). Other than that, the features of the ui will all be very obvious. create new lobby will go ahead and create the player as well. The player icons will be dim or bright based on whether they're ready or not.  Most importantly, just like the layer between firestore and the server state machine action.js, the ui needs a full abstraction layer. Sounds like you've built the client state machine. now build the ui abstraction layer and a suite of tests that handle it.  THEN build an actual ui that may ONLY communicate with the abstraction layer.
+## Last command
+host doesn't show joining players at all, but joining client does
+both players raedy, non-host sees update for host being ready. nothing shows for host, just waiting for players... then Ready!
 
-## Status
-Server machine complete (65 tests): lobby → roundActive → judging → judged → roundActive/gameOver.
-Client machine complete (21 tests): landing → lobby → picking → submitted → judgingWaiting/judgingActive → postJudging → nextRoundReady → gameOver.
-Settings validated via schema on START_GAME.
+Host menu:
+Start Next Round should probably not show if in lobby
+Player admin just shows an empty panel with title Player Admin then Close button (one non host player joined and shoing ready in lobby.
+Host not showing a start game option (but to be fair it's not seeming to get any updates for players being ready).
+
+I'm guessing that there are fundamental flaws in the abstraction for player updates syncing.
+
+allows duplicate name players to join (join button should look at player names and not allow join with same name)
+
 
 # Cards Against What
 
@@ -53,3 +59,9 @@ No npm. No frameworks. No builds. Firebase CLI for deployment. Firebase SDK and 
 6. **Name functions after what they do in plain English.** If the design doc says "replaces discard-requested and submitted cards in player's hand," the function reads close to that.
 
 7. **Dev cycle: write code → test → update CLAUDE.md/DESIGN.md when relevant → commit → push.** Follow this loop. Don't skip steps.
+
+8. **Be methodical and take notes while troubleshooting.** Use troubleshooting-notes.md to save breadcrumbs — what you've found, what you still need, what you're doing next. Do not endlessly trace files in silence. Apply these techniques:
+   - **Divide and conquer.** Comment out half, test. Comment out half of that, test. Binary search to the problem.
+   - **Step back before zooming in.** Check higher-level possibilities first: wrong path, wrong server, wrong environment, missing dependency. The bug might not be in the code at all.
+   - **Restore from history, not memory.** Check chat history first, then git history. Don't rewrite files from scratch.
+   - **Stop after depth 6.** If you've traced 6 files, searches, or lookups without a clear answer, stop and reassess your approach.

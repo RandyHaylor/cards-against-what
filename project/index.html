@@ -48,8 +48,10 @@
       <h1>Cards Against What</h1>
       <div class="landing-form">
         <input id="input-name" type="text" placeholder="Your name" maxlength="20">
+        <hr class="landing-divider">
+        <hr class="landing-divider">
         <button id="btn-create">Create Lobby</button>
-        <div class="divider">— or —</div>
+        <hr class="landing-divider">
         <input id="input-code" type="text" placeholder="Lobby code" maxlength="4">
         <button id="btn-join">Join Lobby</button>
       </div>
@@ -96,6 +98,7 @@
 
     <!-- Post Judging -->
     <section id="view-post-judging" class="hidden">
+      <div id="prompt-result" class="prompt-card"></div>
       <p id="result-message" class="result-msg"></p>
       <div id="result-viewer">
         <button id="res-prev" class="nav-btn">&lt;</button>
@@ -103,10 +106,12 @@
         <button id="res-next" class="nav-btn">&gt;</button>
       </div>
       <p id="res-counter"></p>
+      <button id="btn-next-round" class="action-btn hidden">Next Round</button>
     </section>
 
     <!-- Next Round Ready -->
     <section id="view-next-round" class="hidden">
+      <div id="prompt-next-round" class="prompt-card"></div>
       <p id="next-round-msg" class="result-msg"></p>
       <div id="next-round-viewer">
         <button id="nr-prev" class="nav-btn">&lt;</button>

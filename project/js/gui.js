@@ -64,13 +64,16 @@ const subCounter = $("sub-counter");
 const btnPickWinner = $("btn-pick-winner");
 
 const viewPostJudging = $("view-post-judging");
+const promptResult = $("prompt-result");
 const resultMessage = $("result-message");
 const resCard = $("res-card");
 const resPrev = $("res-prev");
 const resNext = $("res-next");
 const resCounter = $("res-counter");
+const btnNextRound = $("btn-next-round");
 
 const viewNextRound = $("view-next-round");
+const promptNextRound = $("prompt-next-round");
 const nextRoundMsg = $("next-round-msg");
 const nrCard = $("nr-card");
 const nrPrev = $("nr-prev");
@@ -139,13 +142,16 @@ function render(view) {
       lobbyCodeBtn.classList.remove("host-menu-btn");
     }
 
+    // Host menu visibility
+    menuStartNext.classList.toggle("hidden", view.state === "lobby");
+
     // Player icons
     playerIcons.innerHTML = "";
     view.players.forEach((p) => {
       const icon = document.createElement("div");
       icon.className = "player-icon" + (p.ready ? " ready" : "") + (p.isHost ? " host" : "");
-      icon.textContent = p.name.charAt(0).toUpperCase();
-      icon.title = p.name + (p.ready ? " (ready)" : "");
+      icon.textContent = p.score > 0 ? `${p.name} | ${p.score}` : p.name;
+      icon.title = `${p.name}: ${p.score || 0} pts`;
       playerIcons.appendChild(icon);
     });
   }
@@ -182,11 +188,18 @@ function render(view) {
 
     case "postJudging":
       showView(viewPostJudging);
+      promptResult.textContent = formatPrompt(view.currentPrompt);
+      resIndex = view.submissions.findIndex((s) => s.isWinner);
+      if (resIndex < 0) resIndex = 0;
       renderResults(view, resultMessage, resCard, resCounter, "res");
+      btnNextRound.classList.toggle("hidden", !view.isJudge);
       break;
 
     case "nextRoundReady":
       showView(viewNextRound);
+      promptNextRound.textContent = formatPrompt(view.currentPrompt);
+      nrIndex = view.submissions.findIndex((s) => s.isWinner);
+      if (nrIndex < 0) nrIndex = 0;
       renderResults(view, nextRoundMsg, nrCard, nrCounter, "nr");
       break;
 
@@ -262,7 +275,7 @@ function renderPicking(view) {
 
 function renderJudging(view) {
   promptJudging.textContent = formatPrompt(view.currentPrompt);
-  const subs = bridge.getServerActor()?.getSnapshot()?.context?.submissions || [];
+  const subs = view.submissions;
   lastSubmissions = subs;
   if (subs.length === 0) return;
   subIndex = Math.min(subIndex, subs.length - 1);
@@ -272,11 +285,15 @@ function renderJudging(view) {
 
 function renderResults(view, msgEl, cardEl, counterEl, prefix) {
   msgEl.textContent = view.message;
-  const subs = lastSubmissions;
+  const subs = view.submissions;
+  lastSubmissions = subs;
   if (subs.length === 0) return;
   const idx = prefix === "res" ? resIndex : nrIndex;
   const clamped = Math.min(idx, subs.length - 1);
-  cardEl.textContent = subs[clamped].card;
+  const sub = subs[clamped];
+  cardEl.textContent = sub.card;
+  cardEl.classList.toggle("winner", !!sub.isWinner);
+  cardEl.classList.toggle("loser", !sub.isWinner);
   counterEl.textContent = `${clamped + 1} / ${subs.length}`;
 }
 
@@ -359,6 +376,11 @@ btnPickWinner.addEventListener("click", () => {
 // Results nav
 resPrev.addEventListener("click", () => { if (resIndex > 0) { resIndex--; renderResults(bridge.getView(), resultMessage, resCard, resCounter, "res"); } });
 resNext.addEventListener("click", () => { if (resIndex < lastSubmissions.length - 1) { resIndex++; renderResults(bridge.getView(), resultMessage, resCard, resCounter, "res"); } });
+
+// Next round button (post judging)
+btnNextRound.addEventListener("click", () => {
+  bridge.startNextRound();
+});
 
 // Next round nav
 nrPrev.addEventListener("click", () => { if (nrIndex > 0) { nrIndex--; renderResults(bridge.getView(), nextRoundMsg, nrCard, nrCounter, "nr"); } });

@@ -29,8 +29,12 @@ export const clientMachine = setup({
     storePlayerDoc: assign({
       playerDoc: ({ event }) => event.playerDoc,
     }),
-    storeSubmissions: assign({
-      submissions: ({ event }) => event.playerDoc.submissions || [],
+    saveLastRound: assign({
+      lastRound: ({ context }) => ({
+        currentPrompt: context.playerDoc?.currentPrompt || null,
+        submissionsToJudge: context.playerDoc?.submissionsToJudge || [],
+        message: context.playerDoc?.message || "",
+      }),
     }),
   },
 }).createMachine({
@@ -41,7 +45,7 @@ export const clientMachine = setup({
     lobbyCode: input.lobbyCode || null,
     playerId: input.playerId || null,
     playerDoc: null,
-    submissions: [],
+    lastRound: null,
   }),
   states: {
     landing: {
@@ -198,7 +202,7 @@ export const clientMachine = setup({
           {
             guard: "isNewRound",
             target: "nextRoundReady",
-            actions: "storePlayerDoc",
+            actions: ["saveLastRound", "storePlayerDoc"],
           },
           {
             actions: "storePlayerDoc",

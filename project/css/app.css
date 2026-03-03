@@ -63,9 +63,8 @@ header {
 }
 
 .player-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  padding: 4px 10px;
+  border-radius: 14px;
   background: #0f3460;
   display: flex;
   align-items: center;
@@ -75,6 +74,7 @@ header {
   opacity: 0.4;
   transition: opacity 0.2s;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .player-icon.ready { opacity: 1; background: #e94560; }
@@ -190,6 +190,16 @@ main > section {
   flex-direction: column;
   gap: 10px;
   width: 100%;
+}
+
+.landing-divider {
+  border: none;
+  border-top: 1px solid #0f3460;
+  margin: 4px 0;
+}
+
+.landing-divider + .landing-divider {
+  margin-top: -2px;
 }
 
 .landing-form input {
@@ -308,7 +318,8 @@ main > section {
   flex: 1;
 }
 
-.answer-card.winner { border: 3px solid #4caf50; }
+.answer-card.winner { border: 3px solid #4caf50; color: #2e7d32; }
+.answer-card.loser { color: #999; border: 2px solid #ddd; }
 
 #submission-viewer, #result-viewer, #next-round-viewer {
   display: flex;
