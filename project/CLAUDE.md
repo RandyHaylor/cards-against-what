@@ -23,7 +23,7 @@ No npm. No frameworks. No builds. Firebase CLI for deployment. Firebase SDK and 
 ## Testing
 
 - Tests are HTML files containing JS that run against live Firestore — no mocks, no emulators
-- Puppeteer (installed globally) runs them headless from the terminal
+- Puppeteer (installed globally) runs them headless from the terminal via `node project/test/run.js` (or pass a different test file as argument)
 - Tests tell a multiplayer story: create lobby, join, play rounds, score, win
 - Same CDN-loaded Firebase SDK as production — no environment differences
 
