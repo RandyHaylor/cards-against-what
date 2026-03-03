@@ -121,6 +121,9 @@ lobbies/{code}/players/{playerId}
 - Players listen (onSnapshot) to their own doc only. Never the lobby doc, never other players' docs.
 - Players write to their own doc for submissions and discard flags. Server reads, processes, then writes clean state back — each round starts fresh.
 - Deck loaded from cardsUrl (GitHub raw). Not stored in Firestore.
+  - Golden Girls deck: `https://raw.githubusercontent.com/RandyHaylor/cards-against-what/master/project/data/decks/golden-girls-cards.json`
+  - Format: `{ deckId, prompts: [{ id, text: [...strings], pick }], answers: [{ id, text }] }`. Prompt `text` is an array of string segments — answers get inserted between segments, then appended to the end. `pick` is the number of answer cards needed.
+  - TODO: Add tests for deck exhaustion — what happens when answer cards run out mid-game? Shuffle discards back in, or end game?
 
 ## Settings (from game-settings-schema.json)
 

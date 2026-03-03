@@ -2,7 +2,7 @@
 <script type="module">
   import { createActor } from "https://esm.sh/xstate@5";
   import { serverMachine } from "../src/server/machine.js";
-  import { joinLobby, setPlayerReady } from "../src/player/actions.js";
+  import { joinLobby, setPlayerReady, submitAnswer } from "../src/player/actions.js";
   import { createSyncController } from "../src/playerSyncController.js";
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
   import {
@@ -47,20 +47,9 @@
   }
 
   const lobbyCode = "t3st";
-  const testDeck = {
-    prompts: [
-      "Why did _ move to Miami?",
-      "_ is Sophia's secret to longevity.",
-      "The girls argued all night about _.",
-    ],
-    answers: [
-      "Sophia's cheesecake", "Blanche's diary", "Rose's St. Olaf stories",
-      "Dorothy's sarcasm", "Stan's toupee", "A lanai evening",
-      "Shady Pines", "The Rusty Anchor", "Miles Webber",
-      "Big Daddy Hollingsworth", "Picture it: Sicily", "Gil Kessler",
-      "A Scandinavian herring festival", "Sal Petrillo", "Dreyfuss the dog",
-    ],
-  };
+  const deckResponse = await fetch("/data/decks/golden-girls-cards.json");
+  const testDeck = await deckResponse.json();
+  console.log("Deck loaded:", testDeck.prompts.length, "prompts,", testDeck.answers.length, "answers");
 
   // Clean up leftover data from previous runs
   await deleteDoc(doc(db, "lobbies", lobbyCode, "players", "1")).catch(() => {});
@@ -161,6 +150,8 @@
   check("Dorothy is judge (first player)", ctx.players[0].isJudge, true);
   check("Blanche is not judge", ctx.players[1].isJudge, false);
   check("all players have a prompt", ctx.players.every(p => p.currentPrompt !== null), true);
+  check("prompt has text array", Array.isArray(ctx.players[0].currentPrompt.text), true);
+  check("prompt has pick count", ctx.players[0].currentPrompt.pick, 1);
   check("phase is round-active", ctx.players[0].phase, "round-active");
   check("clientUpdates reset", ctx.players[0].clientUpdates.playerReady, false);
 
@@ -169,6 +160,39 @@
   check("Blanche sees round-active phase", blancheState.phase, "round-active");
   check("Blanche has a hand", blancheState.hand.length, 5);
   check("Blanche sees a prompt", blancheState.currentPrompt !== null, true);
+  check("Blanche prompt is structured", Array.isArray(blancheState.currentPrompt.text), true);
+
+  // === ROUND ACTIVE: Submissions ===
+
+  // Blanche submits an answer (non-host — via Firestore)
+  const blancheHand = ctx.players[1].hand;
+  submitAnswer(blancheSync, lobbyCode, "2", blancheHand[0].id, []);
+
+  // Should still be in roundActive — Rose hasn't submitted
+  await waitUntil(() => {
+    const s = actor.getSnapshot();
+    return s.context.players[1].clientUpdates.submission !== null;
+  });
+  check("still in roundActive after 1 submission", actor.getSnapshot().value, "roundActive");
+
+  // Rose submits (non-host — via Firestore), with a discard
+  const roseHand = ctx.players[2].hand;
+  submitAnswer(roseSync, lobbyCode, "3", roseHand[0].id, [roseHand[1].id]);
+
+  await waitUntil(() => actor.getSnapshot().value === "judging");
+  check("transitioned to judging", actor.getSnapshot().value, "judging");
+
+  const judgingCtx = actor.getSnapshot().context;
+  check("submissions assembled", judgingCtx.submissions.length, 2);
+  check("Blanche still has 5 cards (submitted removed, topped up)", judgingCtx.players[1].hand.length, 5);
+  check("Rose has 5 cards (submitted + discard removed, topped up)", judgingCtx.players[2].hand.length, 5);
+  check("Dorothy hand unchanged (judge)", judgingCtx.players[0].hand.length, 5);
+  check("phase is judging", judgingCtx.players[0].phase, "judging");
+
+  // Wait for Firestore sync
+  await waitUntil(() => blancheState?.phase === "judging");
+  check("Blanche sees judging phase", blancheState.phase, "judging");
+  check("Blanche sees judge message", blancheState.message, "Dorothy is reviewing submissions.");
 
   unsubBlanche();
   unsubRose();

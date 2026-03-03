@@ -110,3 +110,70 @@ export function startRound(players, prompt) {
     },
   }));
 }
+
+// -- Submission processing --
+
+export function recordSubmission(players, playerId, submission, discardRequests) {
+  return players.map((p) => {
+    if (p.id === playerId) {
+      return {
+        ...p,
+        clientUpdates: {
+          ...p.clientUpdates,
+          submission,
+          discardRequests: discardRequests || [],
+        },
+      };
+    }
+    return p;
+  });
+}
+
+export function allNonJudgeSubmitted(players) {
+  return players
+    .filter((p) => !p.isJudge)
+    .every((p) => p.clientUpdates.submission !== null);
+}
+
+export function processDiscards(players) {
+  return players.map((p) => {
+    const discards = p.clientUpdates.discardRequests || [];
+    if (discards.length === 0) return p;
+    const hand = p.hand.filter((card) => !discards.includes(card.id));
+    return { ...p, hand };
+  });
+}
+
+export function processSubmissions(players) {
+  return players.map((p) => {
+    if (p.isJudge) return p;
+    const submission = p.clientUpdates.submission;
+    if (submission === null) return p;
+    const hand = p.hand.filter((card) => card.id !== submission);
+    return { ...p, hand };
+  });
+}
+
+export function topUpHands(players, answerCards, handSize) {
+  let cardIndex = 0;
+  const updated = players.map((p) => {
+    const needed = handSize - p.hand.length;
+    if (needed <= 0) return p;
+    const newCards = answerCards.slice(cardIndex, cardIndex + needed);
+    cardIndex += needed;
+    return { ...p, hand: [...p.hand, ...newCards] };
+  });
+  const remainingCards = answerCards.slice(cardIndex);
+  return { players: updated, remainingAnswers: remainingCards };
+}
+
+export function assembleSubmissions(players) {
+  const submissions = players
+    .filter((p) => !p.isJudge && p.clientUpdates.submission !== null)
+    .map((p) => ({
+      playerId: p.id,
+      playerName: p.name,
+      card: p.clientUpdates.submission,
+    }));
+  return shuffleArray(submissions);
+}

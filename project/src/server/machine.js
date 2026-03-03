@@ -9,6 +9,12 @@ import {
   dealHands,
   assignJudge,
   startRound,
+  recordSubmission,
+  allNonJudgeSubmitted,
+  processDiscards,
+  processSubmissions,
+  topUpHands,
+  assembleSubmissions,
 } from "./actions.js";
 
 // TODO: Once live, any new game created also looks at existing lobby docs,
@@ -32,6 +38,12 @@ export const serverMachine = setup({
   },
   guards: {
     allPlayersReady: ({ context }) => allPlayersReady(context.players),
+    allNonJudgeSubmitted: ({ context, event }) => {
+      const updated = recordSubmission(
+        context.players, event.playerId, event.submission, event.discardRequests
+      );
+      return allNonJudgeSubmitted(updated);
+    },
   },
   actions: {
     createLobby: ({ context }) => {
@@ -68,6 +80,36 @@ export const serverMachine = setup({
         promptIndex: context.promptIndex + 1,
       };
     }),
+    recordSubmission: assign({
+      players: ({ context, event }) =>
+        recordSubmission(context.players, event.playerId, event.submission, event.discardRequests),
+    }),
+    processRoundEnd: assign(({ context }) => {
+      let players = processDiscards(context.players);
+      players = processSubmissions(players);
+      const result = topUpHands(players, context.deck.answers, context.handSize);
+      const submissions = assembleSubmissions(context.players);
+      return {
+        players: result.players,
+        deck: { ...context.deck, answers: result.remainingAnswers },
+        submissions,
+      };
+    }),
+    setJudgingPhase: assign({
+      players: ({ context }) => {
+        const judgeName = context.players.find((p) => p.isJudge)?.name || "";
+        return context.players.map((p) => ({
+          ...p,
+          phase: "judging",
+          message: p.isJudge ? "" : `${judgeName} is reviewing submissions.`,
+          clientUpdates: {
+            playerReady: false,
+            submission: null,
+            discardRequests: null,
+          },
+        }));
+      },
+    }),
     syncPlayerDocs: ({ context }) => {
       syncAllPlayerDocs(context.syncController, context.lobbyCode, context.players);
     },
@@ -84,6 +126,7 @@ export const serverMachine = setup({
     deck: null,
     judgeIndex: 0,
     promptIndex: 0,
+    submissions: [],
   }),
   states: {
     lobby: {
@@ -113,6 +156,27 @@ export const serverMachine = setup({
       },
     },
     roundActive: {
+      invoke: {
+        src: "watchPlayersCollection",
+        input: ({ context }) => ({
+          syncController: context.syncController,
+          lobbyCode: context.lobbyCode,
+        }),
+      },
+      on: {
+        PLAYER_SUBMITTED: [
+          {
+            guard: "allNonJudgeSubmitted",
+            target: "judging",
+            actions: ["recordSubmission", "processRoundEnd", "setJudgingPhase", "syncPlayerDocs"],
+          },
+          {
+            actions: ["recordSubmission", "syncPlayerDocs"],
+          },
+        ],
+      },
+    },
+    judging: {
       invoke: {
         src: "watchPlayersCollection",
         input: ({ context }) => ({

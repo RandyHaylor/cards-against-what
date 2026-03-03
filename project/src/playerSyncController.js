@@ -42,6 +42,14 @@ export function createSyncController(db) {
                   playerId: change.doc.id,
                 });
               }
+              if (data.clientUpdates?.submission !== null && data.clientUpdates?.submission !== undefined) {
+                sendBack({
+                  type: "PLAYER_SUBMITTED",
+                  playerId: change.doc.id,
+                  submission: data.clientUpdates.submission,
+                  discardRequests: data.clientUpdates.discardRequests,
+                });
+              }
             }
           });
         }
@@ -76,6 +84,17 @@ export function createSyncController(db) {
       } else {
         updateDoc(doc(db, "lobbies", lobbyCode, "players", playerId), {
           "clientUpdates.playerReady": true,
+        });
+      }
+    },
+
+    submitAnswer(lobbyCode, playerId, submission, discardRequests) {
+      if (serverActor) {
+        serverActor.send({ type: "PLAYER_SUBMITTED", playerId, submission, discardRequests });
+      } else {
+        updateDoc(doc(db, "lobbies", lobbyCode, "players", playerId), {
+          "clientUpdates.submission": submission,
+          "clientUpdates.discardRequests": discardRequests || [],
         });
       }
     },
