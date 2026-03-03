@@ -1,7 +1,10 @@
+## Long-running current instruction
+Lets talk about the ui some. I want the same interface, slim minimal bar across top showing lobby code, copy code button, copy link button, icon with name for each player. if the player is the host, the lobby code is a menu button that has a menu that pops up and has end game (with yes/no confirmation), player admin (overlay with player list, each with a button 'copy rejoin link' and 'kick player' (which has a yes/no confirmation), start next round (these special admin/host controls are tied to no state, do not over build for these). Other than that, the features of the ui will all be very obvious. create new lobby will go ahead and create the player as well. The player icons will be dim or bright based on whether they're ready or not.  Most importantly, just like the layer between firestore and the server state machine action.js, the ui needs a full abstraction layer. Sounds like you've built the client state machine. now build the ui abstraction layer and a suite of tests that handle it.  THEN build an actual ui that may ONLY communicate with the abstraction layer.
+
 ## Status
 Server machine complete (65 tests): lobby → roundActive → judging → judged → roundActive/gameOver.
 Client machine complete (21 tests): landing → lobby → picking → submitted → judgingWaiting/judgingActive → postJudging → nextRoundReady → gameOver.
-Settings validated via schema on START_GAME. Next: UI.
+Settings validated via schema on START_GAME.
 
 # Cards Against What
 
