@@ -1,3 +1,6 @@
+## Long-running current instruction (commit 83f11bc)
+Keep action logic out of machine.js — actions live in actions.js files so they can be reused by different states. Continue building out and testing the remaining server state machine states (round-active, judging, judged, game-over) per DESIGN.md, using TDD. Do not stop to ask questions. Commit/push regularly per the dev cycle commandment in case things go wrong.
+
 # Cards Against What
 
 Cards Against Humanity clone for mobile web on top of Firebase.
@@ -8,6 +11,7 @@ No npm. No frameworks. No builds. Firebase CLI for deployment. Firebase SDK and 
 
 - Host and client are each driven by an XState state machine (see `data/server-state-flow.json` and `data/client-state-flow.json`)
 - Each state has enter/during/exit logic in its own module
+- Action logic lives in `server/actions.js` and `player/actions.js`, not inline in machine.js. Actions are passthrough functions to the sync controller, reusable across states.
 - Host logic runs on player one's browser. Host code ships in every client but only activates for the player flagged as host.
 - Server holds ALL game state in memory (XState context) — not in Firestore. This includes an array of all player objects, including player one.
 - Each player object contains a `players` array: `[{ name, score, ready, isHost }]`. This is the single source of truth for who's playing, scores, and readiness. `ready` is used in lobby (ready to start) and during gameplay (submitted answer).
