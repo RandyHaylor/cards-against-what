@@ -47,6 +47,20 @@
   }
 
   const lobbyCode = "t3st";
+  const testDeck = {
+    prompts: [
+      "Why did _ move to Miami?",
+      "_ is Sophia's secret to longevity.",
+      "The girls argued all night about _.",
+    ],
+    answers: [
+      "Sophia's cheesecake", "Blanche's diary", "Rose's St. Olaf stories",
+      "Dorothy's sarcasm", "Stan's toupee", "A lanai evening",
+      "Shady Pines", "The Rusty Anchor", "Miles Webber",
+      "Big Daddy Hollingsworth", "Picture it: Sicily", "Gil Kessler",
+      "A Scandinavian herring festival", "Sal Petrillo", "Dreyfuss the dog",
+    ],
+  };
 
   // Clean up leftover data from previous runs
   await deleteDoc(doc(db, "lobbies", lobbyCode, "players", "1")).catch(() => {});
@@ -59,7 +73,7 @@
 
   // Dorothy creates a lobby (host sync controller)
   const hostSync = createSyncController(db);
-  const actor = createActor(serverMachine, { input: { syncController: hostSync, deckId: "golden-girls", lobbyCode } });
+  const actor = createActor(serverMachine, { input: { syncController: hostSync, deckId: "golden-girls", lobbyCode, handSize: 5 } });
   actor.start();
   hostSync.setServerActor(actor);
   console.log("Lobby code:", lobbyCode);
@@ -137,8 +151,24 @@
   check("Rose ready in Blanche's view", blancheState.players[2].ready, true);
 
   // All players ready — START_GAME should transition
-  actor.send({ type: "START_GAME" });
+  actor.send({ type: "START_GAME", deck: testDeck });
   check("transitioned to roundActive", actor.getSnapshot().value, "roundActive");
+
+  const ctx = actor.getSnapshot().context;
+  check("Dorothy has 5 cards", ctx.players[0].hand.length, 5);
+  check("Blanche has 5 cards", ctx.players[1].hand.length, 5);
+  check("Rose has 5 cards", ctx.players[2].hand.length, 5);
+  check("Dorothy is judge (first player)", ctx.players[0].isJudge, true);
+  check("Blanche is not judge", ctx.players[1].isJudge, false);
+  check("all players have a prompt", ctx.players.every(p => p.currentPrompt !== null), true);
+  check("phase is round-active", ctx.players[0].phase, "round-active");
+  check("clientUpdates reset", ctx.players[0].clientUpdates.playerReady, false);
+
+  // Wait for Firestore sync of round-active state
+  await waitUntil(() => blancheState?.phase === "round-active");
+  check("Blanche sees round-active phase", blancheState.phase, "round-active");
+  check("Blanche has a hand", blancheState.hand.length, 5);
+  check("Blanche sees a prompt", blancheState.currentPrompt !== null, true);
 
   unsubBlanche();
   unsubRose();

@@ -63,3 +63,50 @@ export function markPlayerReady(players, playerId) {
 export function allPlayersReady(players) {
   return players.length > 0 && players.every((p) => p.clientUpdates.playerReady);
 }
+
+// -- Round setup --
+
+export function shuffleArray(arr) {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+export function dealHands(players, answerCards, handSize) {
+  let cardIndex = 0;
+  const updated = players.map((p) => {
+    const hand = answerCards.slice(cardIndex, cardIndex + handSize);
+    cardIndex += handSize;
+    return { ...p, hand };
+  });
+  const remainingCards = answerCards.slice(cardIndex);
+  return { players: updated, remainingAnswers: remainingCards };
+}
+
+export function assignJudge(players, judgeIndex) {
+  const playerList = buildPlayerList(players);
+  return players.map((p, i) => ({
+    ...p,
+    isJudge: i === judgeIndex,
+    players: playerList,
+  }));
+}
+
+export function startRound(players, prompt) {
+  const playerList = buildPlayerList(players);
+  return players.map((p) => ({
+    ...p,
+    phase: "round-active",
+    currentPrompt: prompt,
+    message: "",
+    players: playerList,
+    clientUpdates: {
+      playerReady: false,
+      submission: null,
+      discardRequests: null,
+    },
+  }));
+}

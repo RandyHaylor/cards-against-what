@@ -5,6 +5,10 @@ import {
   addPlayer,
   markPlayerReady,
   allPlayersReady,
+  shuffleArray,
+  dealHands,
+  assignJudge,
+  startRound,
 } from "./actions.js";
 
 // TODO: Once live, any new game created also looks at existing lobby docs,
@@ -41,6 +45,29 @@ export const serverMachine = setup({
       players: ({ context, event }) =>
         markPlayerReady(context.players, event.playerId),
     }),
+    storeDeck: assign({
+      deck: ({ event }) => ({
+        prompts: shuffleArray(event.deck.prompts),
+        answers: shuffleArray(event.deck.answers),
+      }),
+    }),
+    dealHands: assign(({ context }) => {
+      const result = dealHands(context.players, context.deck.answers, context.handSize);
+      return {
+        players: result.players,
+        deck: { ...context.deck, answers: result.remainingAnswers },
+      };
+    }),
+    assignJudge: assign({
+      players: ({ context }) => assignJudge(context.players, context.judgeIndex),
+    }),
+    drawPromptAndStartRound: assign(({ context }) => {
+      const prompt = context.deck.prompts[context.promptIndex];
+      return {
+        players: startRound(context.players, prompt),
+        promptIndex: context.promptIndex + 1,
+      };
+    }),
     syncPlayerDocs: ({ context }) => {
       syncAllPlayerDocs(context.syncController, context.lobbyCode, context.players);
     },
@@ -52,7 +79,11 @@ export const serverMachine = setup({
     syncController: input.syncController,
     lobbyCode: input.lobbyCode || generateLobbyCode(),
     deckId: input.deckId || "",
+    handSize: input.handSize || 10,
     players: [],
+    deck: null,
+    judgeIndex: 0,
+    promptIndex: 0,
   }),
   states: {
     lobby: {
@@ -77,10 +108,18 @@ export const serverMachine = setup({
         START_GAME: {
           guard: "allPlayersReady",
           target: "roundActive",
+          actions: ["storeDeck", "dealHands", "assignJudge", "drawPromptAndStartRound", "syncPlayerDocs"],
         },
       },
     },
     roundActive: {
+      invoke: {
+        src: "watchPlayersCollection",
+        input: ({ context }) => ({
+          syncController: context.syncController,
+          lobbyCode: context.lobbyCode,
+        }),
+      },
     },
   },
 });
