@@ -1,15 +1,9 @@
-## Last command
-host doesn't show joining players at all, but joining client does
-both players raedy, non-host sees update for host being ready. nothing shows for host, just waiting for players... then Ready!
-
-Host menu:
-Start Next Round should probably not show if in lobby
-Player admin just shows an empty panel with title Player Admin then Close button (one non host player joined and shoing ready in lobby.
-Host not showing a start game option (but to be fair it's not seeming to get any updates for players being ready).
-
-I'm guessing that there are fundamental flaws in the abstraction for player updates syncing.
-
-allows duplicate name players to join (join button should look at player names and not allow join with same name)
+## Current task: Rejoin feature
+1. Player Admin rejoin link includes playerId: `?code=XXXX&playerId=YYYY`
+2. Landing page detects `code` + `playerId` params → auto-rejoin (skip create/join)
+3. ui-bridge gets a `rejoinLobby(code, playerId)` method — starts client actor with watchMyDoc
+4. Client machine handles rejoin: lobby state accepts all phase transitions on first SERVER_UPDATE
+5. GUI: on rejoin params, skip landing, go straight into the game
 
 
 # Cards Against What
